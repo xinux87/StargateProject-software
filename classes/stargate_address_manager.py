@@ -1,7 +1,6 @@
 from ast import literal_eval
 from datetime import datetime
 import json
-import requests
 
 from stargate_address_book import StargateAddressBook
 
@@ -26,13 +25,6 @@ class StargateAddressManager:
 
         self.validator = StargateAddressValidator()
 
-        self.info_api_url = self.cfg.get("subspace_public_api_url")
-
-        # Update the fan gates from the DB every x minutes
-        if self.cfg.get("fan_gate_refresh_enable"):
-            update_interval = self.cfg.get("fan_gate_refresh_interval")
-            stargate.app.schedule.every(update_interval).minutes.do( self.update_fan_gates_from_api )
-
     def get_book(self):
         return self.address_book
 
@@ -49,36 +41,6 @@ class StargateAddressManager:
             return entry['name']
 
         return "Unknown Address"
-
-    def update_fan_gates_from_api(self):
-        """
-        This function gets the fan_gates from the API and stores it in the AddressBook
-        :return: The updated fan_gate dictionary is returned.
-        """
-        self.log.log(f"Updating Fan Gates from API: {self.galaxy} Galaxy")
-
-        if self.stargate.net_tools.has_internet_access():
-            try:
-                # Retrieve the data from the API
-                request = requests.get(self.info_api_url + "/get_fan_gates.php?galaxy=" + self.galaxy_path, timeout=5 )
-                data = json.loads(request.text)
-
-                for gate_config in data:
-                    # Setup the variables
-                    name = gate_config['name']
-                    gate_address = literal_eval(gate_config['sg_address'])
-                    ip_address = self.net_tools.get_ip(gate_config['ip'])
-                    is_gate_online = gate_config['status']
-
-                    # Add it to the datastore
-                    self.address_book.set_fan_gate(name, gate_address, ip_address, is_gate_online)
-
-                self.log.log("Fan Gate Update: Success!")
-                self.cfg.set('fan_gate_last_update', str(datetime.now()))
-            except: # pylint: disable=bare-except
-                self.log.log("Fan Gate Update: FAILED")
-
-        return self.fan_gates
 
     def valid_planet(self, address):
         """

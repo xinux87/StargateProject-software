@@ -68,16 +68,16 @@ class StargateWebServer(SimpleHTTPRequestHandler):
                     "gate_name":                      self.stargate.addr_manager.get_book().get_local_gate_name(),
                     "local_stargate_address":         self.stargate.addr_manager.get_book().get_local_address(),
                     "local_stargate_address_string":  self.stargate.addr_manager.get_book().get_local_address_string(),
-                    "subspace_public_key":            self.stargate.subspace_client.get_public_key(),
-                    "subspace_ip_address_config":     self.stargate.subspace_client.get_configured_ip(),
-                    "subspace_ip_address_active":     self.stargate.net_tools.get_subspace_ip(True),
+                    "subspace_public_key":            None,
+                    "subspace_ip_address_config":     None,
+                    "subspace_ip_address_active":     None,
                     "lan_ip_address":                 self.stargate.net_tools.get_ip_by_interface_list( [ 'wlan0', 'eth0', 'en0', 'en1' ] ),
                     "software_version":               str(self.stargate.sw_updater.get_current_version()),
                     "software_update_last_check":     self.stargate.cfg.get('software_update_last_check'),
                     "software_update_status":         self.stargate.cfg.get('software_update_status'),
                     "python_version":                 platform.python_version(),
-                    "internet_available":             self.stargate.net_tools.has_internet_access(),
-                    "subspace_available":             self.stargate.subspace_client.is_online(),
+                    "internet_available":             False,
+                    "subspace_available":             False,
                     "standard_gate_count":            len(self.stargate.addr_manager.get_book().get_standard_gates()),
                     "fan_gate_count":                 len(self.stargate.addr_manager.get_book().get_fan_gates()),
                     "lan_gate_count":                 len(self.stargate.addr_manager.get_book().get_lan_gates()),
@@ -335,11 +335,7 @@ class StargateWebServer(SimpleHTTPRequestHandler):
                     data = { "success": True, "message": "There are no conflicts with your chosen address.<br><br>Local Address Saved." }
 
             elif self.path == '/update/subspace_ip':
-                try:
-                    self.stargate.subspace_client.set_ip_address(data['ip'])
-                    data = { "success": True, "message": "Subspace IP Address Saved." }
-                except ValueError as ex:
-                    data = { "success": False, "message": str(ex) }
+                data = { "success": False, "message": "Subspace not available." }
 
             elif self.path == '/update/config':
                 try:
