@@ -1,4 +1,4 @@
-from os import listdir, path
+from os import listdir, path, walk
 from random import choice
 import subprocess
 import simpleaudio as sa
@@ -10,6 +10,7 @@ class StargateAudio:
         self.log = app.log
         self.cfg = app.cfg
         self.galaxy_path = app.galaxy_path
+        self.base_path = base_path
 
         self.sound_fx_root = base_path + "/soundfx/" + self.galaxy_path # No trailing slash
 
@@ -111,6 +112,15 @@ class StargateAudio:
         if self.random_clip_is_playing():
             self.random_clip.wait_done()
 
+    def list_clips(self):
+        clips = []
+        path_to_folder = self.sound_fx_root
+        for root, dirs, files in walk(path_to_folder):
+            relative_path = root.replace(path_to_folder, '')
+            file_names = [path.join(relative_path, item) for item in files]
+            clips += file_names
+        return clips
+
     @staticmethod
     def get_usb_audio_device_card_number():
         """
@@ -122,7 +132,7 @@ class StargateAudio:
             for line in audio_devices:
                 if 'USB' in line:
                     return line[5]
-                return 1
+            return 1
         except FileNotFoundError:
             return 1
 
@@ -169,6 +179,22 @@ class StargateAudio:
         except subprocess.CalledProcessError:
             self.log.log("Failed to set audio adapter config")
 
+    def play_volume_click(self):
+        """
+        A short test sound to check the current volume.
+        It uses the file /home/pi/sg1_v4/test/volume_beep.wav
+        """
+        if not self.cfg.get('audio_enable'):
+            return
+
+        try:
+            wav_path = self.base_path + "/test/volume_beep.wav"
+            wave_obj = sa.WaveObject.from_wave_file(wav_path)
+            wave_obj.play()
+            # We don't wait for the ending, the sound plays in the background
+        except Exception as e:
+            self.log.log(f"Failed to play volume click: {e}")
+
     def set_volume(self, percent_value):
         """
         Attempt to set the audio volume level according to the percent_value.
@@ -193,19 +219,25 @@ class StargateAudio:
         new_volume = self.volume
 
         # Increase, to a max of 100
-        new_volume+=step
+        new_volume += step
         new_volume = min(new_volume, 100)
 
         # Set the volume, which also updates the config file
         self.set_volume(new_volume)
 
+        # Play a short test sound
+        self.play_volume_click()
+
     def volume_down(self, step=5):
         # Get current volume
         new_volume = self.volume
 
-        # Increase, to a max of 100
-        new_volume-=step
+        # Decrease, to a min of 0
+        new_volume -= step
         new_volume = max(new_volume, 0)
 
         # Set the volume, which also updates the config file
         self.set_volume(new_volume)
+
+        # Play a short test sound at a lower volume
+        self.play_volume_click()
