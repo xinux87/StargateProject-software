@@ -21,9 +21,9 @@ class StargateAudio:
         self.sounds['dialing_cancel'] = { 'file': self.init_wav_file( "/cancel.wav" ) }
         self.sounds['dialing_fail'] =   { 'file': self.init_wav_file( "/dial_fail_sg1.wav" ) }
 
-        self.sounds['wormhole_open'] =        { 'file': self.init_wav_file( "/eh_usual_open.wav" ) }
-        self.sounds['wormhole_established'] = { 'file': self.init_wav_file( "/wormhole-loop.wav" ) }
-        self.sounds['wormhole_close'] =       { 'file': self.init_wav_file( "/eh_usual_close.wav" ) }
+        self.sounds['wormhole_open'] =        { 'path': str(self.sound_fx_root + "/eh_usual_open.wav") }
+        self.sounds['wormhole_established'] = { 'path': str(self.sound_fx_root + "/wormhole-loop.wav") }
+        self.sounds['wormhole_close'] =       { 'path': str(self.sound_fx_root + "/eh_usual_close.wav") }
 
         self.sounds['chevron_1'] = { 'file': self.init_wav_file( "/chev_usual_1.wav" ) }
         self.sounds['chevron_2'] = { 'file': self.init_wav_file( "/chev_usual_2.wav" ) }
@@ -35,6 +35,7 @@ class StargateAudio:
         self.incoming_chevron_sounds = [ self.sounds['chevron_4'],  self.sounds['chevron_5'],  self.sounds['chevron_6'],  self.sounds['chevron_7'] ]
 
         self.random_clip = None
+        self._clip_cache = {}
 
         # Check/set the correct USB audio adapter. This is necessary because different raspberries detects the USB audio adapter differently.
         self.set_correct_audio_output_device()
@@ -45,7 +46,10 @@ class StargateAudio:
     def sound_start(self, clip_name):
         if self.cfg.get('audio_enable'):
             try:
-                self.sounds[clip_name]['obj'] = self.sounds[clip_name]['file'].play()
+                sound = self.sounds[clip_name]
+                if 'file' not in sound:
+                    sound['file'] = sa.WaveObject.from_wave_file(sound['path'])
+                sound['obj'] = sound['file'].play()
             except: #pylint: disable=bare-except
                 self.log.log("Failed to start audio file - is the USB Audio adapter installed?")
 
@@ -90,7 +94,9 @@ class StargateAudio:
         while not path.isfile(filepath): # If the rand_file is not a file. (If it's a directory)
             rand_file = choice(listdir(path_to_folder)) # Choose a new one.
             filepath = path.join(path_to_folder, rand_file) # Update Filepath
-        clip = sa.WaveObject.from_wave_file(path_to_folder + '/' + rand_file)
+        if filepath not in self._clip_cache:
+            self._clip_cache[filepath] = sa.WaveObject.from_wave_file(filepath)
+        clip = self._clip_cache[filepath]
 
         try:
             self.random_clip = clip.play()

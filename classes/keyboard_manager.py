@@ -2,7 +2,6 @@ import sys
 from threading import Thread
 import tty
 import termios
-import subspace_messages
 
 class KeyboardManager:
 
@@ -33,8 +32,8 @@ class KeyboardManager:
 
     def stdin_thread_start(self):
         ## Create a background thread that runs in parallel and asks for user inputs from the DHD or keyboard.
-        self.ask_for_input_thread = Thread(target=self.thread_stdin, args=([self.stargate]))
-        self.ask_for_input_thread.start()  # start
+        self.ask_for_input_thread = Thread(target=self.thread_stdin, args=([self.stargate]), daemon=True)
+        self.ask_for_input_thread.start()
 
     @staticmethod
     def block_for_stdin():
@@ -65,8 +64,8 @@ class KeyboardManager:
 
     def keyboard_direct_thread_start(self):
         ## Create a background thread that runs in parallel and asks for user inputs from the DHD or keyboard.
-        self.ask_for_input_thread = Thread(target=self.thread_keyboard_direct, args=([self.stargate]))
-        self.ask_for_input_thread.start()  # start
+        self.ask_for_input_thread = Thread(target=self.thread_keyboard_direct, args=([self.stargate]), daemon=True)
+        self.ask_for_input_thread.start()
 
     def thread_keyboard_direct(self, stargate):
         """
@@ -186,9 +185,5 @@ class KeyboardManager:
             self.stargate.dialer.hardware.set_center_on() # Activate the centre_button_outgoing light
         # If an outgoing wormhole is established
         if self.stargate.wormhole_active == 'outgoing':
-            # TODO: We shouldn't be doing subspace-y stuff in the keyboard manager
-            if self.addr_manager.is_fan_made_stargate(self.stargate.address_buffer_outgoing) \
-             and self.stargate.fan_gate_online_status: # If we are connected to a fan_gate
-                self.stargate.subspace_client.send_to_remote_stargate(self.addr_manager.get_ip_from_stargate_address(self.stargate.address_buffer_outgoing), subspace_messages.DIAL_CENTER_INCOMING)
-            if not self.stargate.black_hole: # If we did not dial the black hole.
-                self.stargate.wormhole_active = False # cancel outgoing wormhole
+            if not self.stargate.black_hole:
+                self.stargate.wormhole_active = False

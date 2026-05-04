@@ -1,5 +1,6 @@
 from time import sleep
 from random import choice, randint
+from collections import deque
 from wormhole_pattern_manager import WormholePatternManager
 
 class WormholeAnimationManager:
@@ -57,35 +58,20 @@ class WormholeAnimationManager:
         """
         This functions spins a led pattern along the led strip.
         :param pattern: The pattern as a list. (this is optional) If left blank, we try to rotate the current pattern on the led strip.
-        :param direction: The direction as a string, either cw og ccw.
+        :param direction: The direction as a string, either cw or ccw.
         :param speed: the speed as a number. 0 is fastest, and higher is slow. eg, speed=1 (1 - 10 seems as good speeds)
         :param revolutions: The number of rounds to turn the pattern. 1 round is one whole revolution.
-        :return: Noting is returned
+        :return: Nothing is returned
         """
-        ### Determine what pattern to spin ###
-        ## convert NeoPixel object to list ###
-        if pattern is None:
-            pix = self.pixels
-            current_pattern = []
-            for led in pix:
-                current_pattern.append(led)
-        else:
-            current_pattern = pattern
-
-        ### direction ###
-        rot_direction = -1
-        if direction == 'cw':
-            rot_direction = 1
-
-        ### Rotate the pattern ###
-        for revolution in range(revolutions): # pylint: disable=unused-variable
-            for rotate in range(len(current_pattern)): # pylint: disable=unused-variable
-                if not self.stargate.wormhole_active:  # if the wormhole is cancelled
-                    return  # this exits the whole for loop, even if nested.
-                current_pattern = [current_pattern[(i + rot_direction) % len(current_pattern)]
-                                   for i, x in enumerate(current_pattern)]
-                self.set_wormhole_pattern(current_pattern)
-                sleep(speed / 100)
+        current_pattern = deque(pattern if pattern is not None else list(self.pixels))
+        rot = 1 if direction == 'cw' else -1
+        total_steps = revolutions * len(current_pattern)
+        for _ in range(total_steps):
+            if not self.stargate.wormhole_active:
+                return
+            current_pattern.rotate(rot)
+            self.set_wormhole_pattern(current_pattern)
+            sleep(speed / 100)
 
     def fade_transition(self, new_pattern):
         """
@@ -131,10 +117,7 @@ class WormholeAnimationManager:
                 tween_pattern.append((red, green, blue))
             return tween_pattern
 
-        ## convert NeoPixel object to list ###
-        current_pattern = []
-        for led in pix:
-            current_pattern.append(led)
+        current_pattern = list(pix)
 
         ## These are the two lists we are working with.
         # print(current_pattern)
@@ -143,6 +126,7 @@ class WormholeAnimationManager:
             tween_pattern = create_tween_pattern(current_pattern, new_pattern)
             current_pattern = tween_pattern
             self.set_wormhole_pattern(tween_pattern)
+            sleep(0.005)
 
     def sweep_transition(self, new_pattern):
         """
@@ -151,10 +135,7 @@ class WormholeAnimationManager:
         :return: Noting is returned
         """
         pix = self.pixels
-        ## convert NeoPixel object to list ###
-        current_pattern = []
-        for led in pix:
-            current_pattern.append(led)
+        current_pattern = list(pix)
 
         # random direction
         directions = ['forward', 'backwards']

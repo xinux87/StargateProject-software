@@ -93,10 +93,9 @@ class StargateAddressBook:
         return gates
 
     def get_fan_gate_by_address(self, address):
-        for value in self.get_fan_gates().values():
+        for value in self.datastore.get("fan_gates").values():
             if address == value['gate_address']:
                 return value
-
         return False
 
     def set_fan_gate(self, name, gate_address, ip_address, is_gate_online, is_black_hole=False):
@@ -115,10 +114,9 @@ class StargateAddressBook:
         return gates
 
     def get_lan_gate_by_address(self, address):
-        for value in self.get_lan_gates().values():
+        for value in self.datastore.get("lan_gates").values():
             if address == value['gate_address']:
                 return value
-
         return False
 
     def set_lan_gate(self, name, gate_address, ip_address, is_black_hole=False):
@@ -137,7 +135,7 @@ class StargateAddressBook:
         return gates
 
     def get_standard_gate_by_address(self, address):
-        for value in self.get_standard_gates().values():
+        for value in self.datastore.get("standard_gates").values():
             if address == value['gate_address']:
                 return value
         return False
