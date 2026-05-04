@@ -58,7 +58,7 @@ class StargateAudio:
         return False
 
     def init_wav_file(self, file_path):
-        return sa.WaveObject.from_wave_file(str(self.sound_fx_root + "/" + file_path))
+        return sa.WaveObject.from_wave_file(str(self.sound_fx_root + file_path))
 
     def incoming_chevron(self):
         if self.cfg.get('audio_enable'):
@@ -156,8 +156,13 @@ class StargateAudio:
             if self.get_usb_audio_device_card_number() != self.get_active_audio_card_number():
                 self.log.log(f'Updating the alsa.conf file with card {self.get_usb_audio_device_card_number()}')
 
+                #ifsodund doesent work check "aplay -l" to ge t the devices and if its not device number one set it to the usb audio.
+
                 ctl = 'defaults.ctl.card ' + str(self.get_usb_audio_device_card_number())
                 pcm = 'defaults.pcm.card ' + str(self.get_usb_audio_device_card_number())
+                #ctl = 'defaults.ctl.card 2'
+                #pcm = 'defaults.pcm.card 2'
+
                 # replace the lines in the alsa.conf file.
                 subprocess.run(['sudo', 'sed', '-i', f"/defaults.ctl.card /c\{ctl}", '/usr/share/alsa/alsa.conf'], check=False) #TODO: Check should be true
                 subprocess.run(['sudo', 'sed', '-i', f"/defaults.pcm.card /c\{pcm}", '/usr/share/alsa/alsa.conf'], check=False) #TODO: Check should be true

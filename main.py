@@ -41,15 +41,15 @@ class GateApplication:
     def __init__(self):
 
         # Configure Rollbar for uncaught exception logging and basic usage info
-        load_dotenv()
-        ROLLBAR_POST_ACCESS_TOKEN = os.getenv('ROLLBAR_TOKEN') # pylint: disable=invalid-name
-        rollbar.init(ROLLBAR_POST_ACCESS_TOKEN, 'production')
-        def rollbar_except_hook(exc_type, exc_value, traceback):
-            # Report the issue to rollbar here.
-            rollbar.report_exc_info((exc_type, exc_value, traceback))
-            # display the error as normal here
-            sys.__excepthook__(exc_type, exc_value, traceback)
-        sys.excepthook = rollbar_except_hook
+    #     load_dotenv()
+    #     ROLLBAR_POST_ACCESS_TOKEN = os.getenv('ROLLBAR_TOKEN') # pylint: disable=invalid-name
+    #     rollbar.init(ROLLBAR_POST_ACCESS_TOKEN, 'production')
+    #     def rollbar_except_hook(exc_type, exc_value, traceback):
+    #         # Report the issue to rollbar here.
+    #         rollbar.report_exc_info((exc_type, exc_value, traceback))
+    #         # display the error as normal here
+    #         sys.__excepthook__(exc_type, exc_value, traceback)
+    #     sys.excepthook = rollbar_except_hook
 
 
         self.galaxy = GALAXY
@@ -78,9 +78,9 @@ class GateApplication:
         self.cfg.load()
 
         ### Start the websockets-based LogTailServer
-        # from websocket_server import LogTailServerWrapper
-        # self.log_tail_server = LogTailServerWrapper("logs/sg1.log", str(9000))
-        # self.log_tail_server.start()
+        #from websocket_server import LogTailServerWrapper
+        #self.log_tail_server = LogTailServerWrapper("logs/sg1.log", str(9000))
+        #self.log_tail_server.start()
 
         # Some credits
         self.log.log('*******************************************************************')
@@ -108,8 +108,8 @@ class GateApplication:
 
         ### Check for new software updates ###
         self.sw_updater = SoftwareUpdateV2(self)
-        if self.cfg.get("software_update_enabled"):
-            self.sw_updater.check_and_install()
+        ##if self.cfg.get("software_update_enabled"):
+        ##    self.sw_updater.check_and_install()
 
         self.log.log(f'Booting up the Stargate! Version {self.sw_updater.get_current_version()}')
         rollbar.report_message(f'Startup: v{self.sw_updater.get_current_version()}-{self.galaxy}', 'info')

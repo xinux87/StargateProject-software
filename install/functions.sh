@@ -1,7 +1,7 @@
 
 function verify_stargate_software_or_exit() {
-  [ ! -d '../classes' ] && echo 'Upload the Software /home/pi/sg1_v4/ before continuing' && exit 1
-  [ ! -d '../soundfx' ] && echo 'Upload the Audio clips /home/pi/sg1_v4/soundfx/(milkyway|pegasus) before continuing' && exit 1
+  [ ! -d '../classes' ] && echo 'Upload the Software /home/xinux/sg1_v4/ before continuing' && exit 1
+  [ ! -d '../soundfx' ] && echo 'Upload the Audio clips /home/xinux/sg1_v4/soundfx/(milkyway|pegasus) before continuing' && exit 1
   echo 'Version 4.x Software installation detected'
 }
 
@@ -27,8 +27,8 @@ function config_users_and_passwords() {
 function set_permissions() {
   # Set permissions on the scripts
   echo 'Configuring permissions on Stargate Scripts'
-  sudo chmod u+x /home/pi/sg1_v4/util/*
-  sudo chmod u+x /home/pi/sg1_v4/scripts/*
+  sudo chmod u+x /home/xinux/sg1_v4/util/*
+  sudo chmod u+x /home/xinux/sg1_v4/scripts/*
 }
 
 function do_hardware_config() {
@@ -53,15 +53,15 @@ function apt_update_and_install() {
 
   # Install system-level dependencies
   echo 'Installing system-level dependencies...this may take a while.'
-  sudo apt-get install --no-install-recommends -y nano clang python3-dev python3-venv libasound2-dev avahi-daemon apache2 wireguard ufw python3-smbus i2c-tools netcat-traditional | sed 's/^/     /'
+  sudo apt-get install --no-install-recommends -y nano clang python3-dev python3-venv libasound2-dev avahi-daemon apache2 wireguard ufw python3-smbus i2c-tools netcat-traditional python3-RPi.GPIO | sed 's/^/     /'
 }
 
 function init_venv() {
   # Create the virtual environment
-  cd /home/pi
+  cd /home/xinux
 
   # Remove the env if it already exists
-  [ ! -d './venv_v4' ] && rm -Rf /home/pi/venv_v4
+  [ ! -d './venv_v4' ] && rm -Rf /home/xinux/venv_v4
 
   echo 'Initializing Python virtual environment'
   python3 -m venv venv_v4
@@ -106,7 +106,7 @@ function configure_apache() {
 
   # Add the new config
   sudo tee /etc/apache2/conf-available/stargate_api.conf > /dev/null <<EOT
-<Directory /home/pi/sg1_v4/web>
+<Directory /home/xinux/sg1_v4/web>
     Options Indexes FollowSymLinks
     AllowOverride None
     Require all granted
@@ -118,11 +118,11 @@ EOT
   sudo ln -sf /etc/apache2/conf-available/stargate_api.conf /etc/apache2/conf-enabled/stargate_api.conf
 
   echo 'Configuring Apache to run the server as user and group ''sg1'''
-  sudo sed -i 's/export APACHE_RUN_USER=www-data/export APACHE_RUN_USER=pi/' /etc/apache2/envvars
-  sudo sed -i 's/export APACHE_RUN_GROUP=www-data/export APACHE_RUN_GROUP=pi/' /etc/apache2/envvars
+  sudo sed -i 's/export APACHE_RUN_USER=www-data/export APACHE_RUN_USER=xinux/' /etc/apache2/envvars
+  sudo sed -i 's/export APACHE_RUN_GROUP=www-data/export APACHE_RUN_GROUP=xinux/' /etc/apache2/envvars
 
   echo 'Configure the virtualhost DocumentRoot'
-  sudo sed -i "s|\("DocumentRoot" * *\).*|\1/home/pi/sg1_v4/web|" /etc/apache2/sites-available/000-default.conf
+  sudo sed -i "s|\("DocumentRoot" * *\).*|\1/home/xinux/sg1_v4/web|" /etc/apache2/sites-available/000-default.conf
 
   # Enable ModProxy and ModProxyHTTP
   echo 'Apache Config: Enabling required modules.'
@@ -141,7 +141,7 @@ function restart_apache() {
 function configure_crontab() {
   # Add the speaker-tickler to our crontab
   echo 'Configuring crontab (user: pi)'
-  (crontab -l | echo "*/8 * * * * /home/pi/venv_v4/bin/python3 /home/pi/sg1_v4/scripts/speaker_on.py") | awk '!x[$0]++' | crontab -
+  (crontab -l | echo "*/8 * * * * /home/xinux/venv_v4/bin/python3 /home/xinux/sg1_v4/scripts/speaker_on.py") | awk '!x[$0]++' | crontab -
 }
 
 function disable_pwr_mgmt() {
@@ -196,7 +196,7 @@ function configure_logrotate() {
   # Load the logrotated configs
   echo 'Configuring logrotate'
   sudo tee -a /etc/logrotate.d/stargate > /dev/null <<EOT
-/home/pi/sg1_v4/logs/*.log {
+/home/xinux/sg1_v4/logs/*.log {
     missingok
     notifempty
     size 30k
@@ -217,8 +217,8 @@ function configure_systemd_service() {
 # [Service]
 # Type=simple
 # Restart=always
-# WorkingDirectory=/home/pi/sg1_v4
-# ExecStart=/home/pi/venv_v4/bin/python /home/pi/sg1_v4/main.py
+# WorkingDirectory=/home/xinux/sg1_v4
+# ExecStart=/home/xinux/venv_v4/bin/python /home/xinux/sg1_v4/main.py
 # [Install]
 # WantedBy=multi-user.target
 # EOT
@@ -231,8 +231,8 @@ AllowIsolate=yes
 
 [Service]
 Type=simple
-WorkingDirectory=/home/pi/sg1_v4
-ExecStart=/home/pi/venv_v4/bin/python /home/pi/sg1_v4/main.py --daemon
+WorkingDirectory=/home/xinux/sg1_v4
+ExecStart=/home/xinux/venv_v4/bin/python /home/xinux/sg1_v4/main.py --daemon
 
 [Install]
 WantedBy=multi-user.target
@@ -274,7 +274,7 @@ function configure_firewall_ufw() {
 
 function configure_git() {
   echo 'Configuring git'
-  cd /home/pi/sg1_v4/
+  cd /home/xinux/sg1_v4/
   git config core.fileMode false
   sudo git config --system --add safe.directory '*' # Remove warning of dubious ownership in the repository
 }
