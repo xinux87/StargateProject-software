@@ -4,7 +4,7 @@
 
 # Set the virtual environment name
 VENV_NAME="venv_v4"
-DIR="/home/pi"
+DIR="/home/xinux"
 
 # Create the virtual environment
 cd $DIR

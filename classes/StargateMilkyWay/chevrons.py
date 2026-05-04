@@ -1,5 +1,7 @@
 from random import choice
 from time import sleep
+from adafruit_servokit import ServoKit
+from adafruit_motor.motor import DCMotor
 
 class ChevronManager:
 
@@ -18,7 +20,7 @@ class ChevronManager:
         # Retrieve the Chevron config and initialize the Chevron objects
         self.chevrons = {}
         for chevron_number in range(1,10):
-            self.chevrons[chevron_number] = Chevron( self.electronics, chevron_number, self.audio, self.cfg )
+            self.chevrons[chevron_number] = Chevron( self.electronics, chevron_number, self.audio, self.cfg , self.log)
 
     def get( self, chevron_number ):
         return self.chevrons[int(chevron_number)]
@@ -57,32 +59,60 @@ class Chevron:
     The motor_number is the number for the motor as an int.
     """
 
-    def __init__(self, electronics, chevron_number, audio, cfg):
+    def __init__(self, electronics, chevron_number, audio, cfg, log):
 
         self.cfg = cfg
         self.audio = audio
         self.electronics = electronics
+        self.log = log
 
         # Retrieve Configurations
         # TODO: Move to allow config to change without restart
         self.audio_chevron_down_headstart = self.cfg.get("audio_chevron_down_headstart") #0.2
         self.chevron_down_throttle = self.cfg.get("chevron_down_throttle") #-0.65 # negative
+        self.chevron_down_servo_throttle = -0.5 #-0.5
         self.chevron_down_time = self.cfg.get("chevron_down_time") #0.1
         self.chevron_down_wait_time = self.cfg.get("chevron_down_wait_time") #0.35
         self.chevron_up_throttle = self.cfg.get("chevron_up_throttle") #0.65 # positive
+        self.chevron_up_servo_throttle = 0.7 #1
         self.chevron_up_time = self.cfg.get("chevron_up_time") #0.2
 
         self.motor = self.electronics.get_chevron_motor(chevron_number)
+        self.motorTypeDC = 'DC'
+        self.motorTypeServo = 'servo'
+        self.motorType = str(type(self.motor))
+        
         self.led = self.electronics.get_chevron_led(chevron_number)
 
         self.position = "unknown"
         self.led_state = False
+
+        if self.motorTypeServo in self.motorType :
+            self.move_up_servo()
+
 
     def cycle_outgoing(self):
         self.move_down() # Motor down, light on
         self.move_up() # Motor up, light unchanged
 
     def move_down(self):
+        if self.motorTypeServo in self.motorType :
+            self.move_down_servo()
+        elif self.motorTypeDC in self.motorType:
+            self.move_down_dcmotor()
+        else:
+            self.log.log(f"Motor type Unknown: {type(self.motor)}")
+
+
+    def move_up(self):
+        if self.motorTypeServo in self.motorType :
+            self.move_up_servo()
+        elif self.motorTypeDC in self.motorType:
+            self.move_up_dcmotor()
+        else:
+            self.log.log(f"Motor type Unknown: {type(self.motor)}")
+
+    def move_down_dcmotor(self):
         ### Chevron Down ###
         self.audio.sound_start('chevron_1') # chev down audio
         sleep(self.audio_chevron_down_headstart)
@@ -98,12 +128,36 @@ class Chevron:
         self.light_on()
         sleep(self.chevron_down_wait_time) # wait time without motion
 
-    def move_up(self):
+    def move_down_servo(self):
+         ### Chevron Down ###
+        self.audio.sound_start('chevron_1') # chev down audio
+        sleep(self.audio_chevron_down_headstart)
+
+        self.motor.throttle = self.chevron_down_servo_throttle # Start the motor
+        sleep(self.chevron_down_time) # Motor movement time
+        #self.motor.throttle = None # Stop the motor
+        self.position = "unlocked"
+
+        ### Turn on the LED ###
+        sleep(self.chevron_down_wait_time) # wait time without motion
+        self.audio.sound_start('chevron_3') # led on audio
+        self.light_on()
+        sleep(self.chevron_down_wait_time) # wait time without motion
+
+    def move_up_dcmotor(self):
         ### Chevron Down ###
         self.audio.sound_start('chevron_2') # chev up audio
         self.motor.throttle = self.chevron_up_throttle # Start the motor
         sleep(self.chevron_up_time) # motor movement time
         self.motor.throttle = None # Stop the motor
+        self.position = "locked"
+
+    def move_up_servo(self):
+        ### Chevron Down ###
+        self.audio.sound_start('chevron_2') # chev up audio
+        self.motor.throttle = self.chevron_up_servo_throttle # Start the motor
+        sleep(self.chevron_up_time) # motor movement time
+        #self.motor.throttle = None # Stop the motor
         self.position = "locked"
 
     def light_on(self):

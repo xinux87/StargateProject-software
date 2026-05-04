@@ -3,6 +3,7 @@
 HARDWARE_MODE_NONE = 0
 HARDWARE_MODE_ORIGINAL = 1
 HARDWARE_MODE_MAINBOARD_1V1 = 2
+HARDWARE_MODE_SERVO = 3
 
 class Electronics: # pylint: disable=too-few-public-methods
 
@@ -18,6 +19,9 @@ class Electronics: # pylint: disable=too-few-public-methods
             if hw_mode == HARDWARE_MODE_MAINBOARD_1V1:
                 from electronics_mainboard_1v1 import ElectronicsMainBoard1V1 # pylint: disable=import-outside-toplevel
                 return ElectronicsMainBoard1V1(app)
+            if hw_mode == HARDWARE_MODE_SERVO:
+                from electronics_servo import Electronics_Servo # pylint: disable=import-outside-toplevel
+                return Electronics_Servo(app)
 
         # Default: No Electronics, simulate everything
         from electronics_none import ElectronicsNone # pylint: disable=import-outside-toplevel
@@ -34,6 +38,7 @@ class HardwareDetector:
         # TODO: Refactor this to loop over the signatures in an array
         self.signature_adafruit_shields = ['0x60', '0x61', '0x62'] # HARDWARE_MODE_ORIGINAL
         self.signature_mainboard_1v1 = ['0x66', '0x6f'] # HARDWARE_MODE_MAINBOARD_1V1
+        self.signature_servo = ['0x40', '0x60'] # HARDWARE_MODE_SERVO
 
         self.smbus = False
         self.import_smbus()
@@ -61,19 +66,21 @@ class HardwareDetector:
                 devices.append(hex(device))
             except: # exception if read_byte fails # pylint: disable=bare-except
                 pass
+        self.log.log(devices)    
         return devices
 
     def get_hardware_mode(self):
         if self.hardware_mode is None:
             devices = self.get_i2c_devices()
-
+            
             if all( item in devices for item in self.signature_adafruit_shields ):
                 self.hardware_mode = HARDWARE_MODE_ORIGINAL
             elif all( item in devices for item in self.signature_mainboard_1v1 ):
                 self.hardware_mode = HARDWARE_MODE_MAINBOARD_1V1
+            elif all ( item in devices for item in self.signature_servo ):
+                self.hardware_mode = HARDWARE_MODE_SERVO
             else:
                 self.hardware_mode = HARDWARE_MODE_NONE
-
         return self.hardware_mode
 
     def get_hardware_mode_name(self):

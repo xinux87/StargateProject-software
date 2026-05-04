@@ -17,9 +17,9 @@ echo 'Starting...'
 verify_stargate_software_or_exit
 
 enable_ssh
-configure_hostname
-copy_wpa_supplicant
-config_users_and_passwords
+#configure_hostname
+#copy_wpa_supplicant
+#config_users_and_passwords
 
 configure_git
 set_permissions
@@ -35,7 +35,7 @@ disable_onboard_audio
 configure_audio
 configure_logrotate
 configure_systemd_service
-configure_wireguard
+#configure_wireguard
 
 # configure_firewall_ufw # Requires a reboot to complete w/o error.
 
@@ -47,5 +47,5 @@ echo ' Connect via SSH: `ssh pi@stargate.local`'
 echo ' Open the web interface `http://stargate.local`'
 echo
 echo
-sudo reboot
+#sudo reboot
 exit 0
