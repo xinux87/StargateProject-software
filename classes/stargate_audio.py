@@ -1,7 +1,7 @@
 from os import listdir, path, walk
 from random import choice
 import subprocess
-import simpleaudio as sa
+import audio_player as sa
 
 class StargateAudio:
 
@@ -128,6 +128,16 @@ class StargateAudio:
         return clips
 
     @staticmethod
+    @staticmethod
+    def _has_usb_audio_device():
+        """Return True if at least one USB audio adapter is visible to aplay."""
+        try:
+            out = subprocess.run(['aplay', '-l'], capture_output=True, text=True, check=False).stdout
+            return 'USB' in out
+        except FileNotFoundError:
+            return False
+
+    @staticmethod
     def get_usb_audio_device_card_number():
         """
         This function gets the card number for the USB audio adapter.
@@ -180,8 +190,8 @@ class StargateAudio:
                 #pcm = 'defaults.pcm.card 2'
 
                 # replace the lines in the alsa.conf file.
-                subprocess.run(['sudo', 'sed', '-i', f"/defaults.ctl.card /c\{ctl}", '/usr/share/alsa/alsa.conf'], check=False) #TODO: Check should be true
-                subprocess.run(['sudo', 'sed', '-i', f"/defaults.pcm.card /c\{pcm}", '/usr/share/alsa/alsa.conf'], check=False) #TODO: Check should be true
+                subprocess.run(['sudo', 'sed', '-i', f"/defaults.ctl.card /c\\{ctl}", '/usr/share/alsa/alsa.conf'], check=False) #TODO: Check should be true
+                subprocess.run(['sudo', 'sed', '-i', f"/defaults.pcm.card /c\\{pcm}", '/usr/share/alsa/alsa.conf'], check=False) #TODO: Check should be true
         except subprocess.CalledProcessError:
             self.log.log("Failed to set audio adapter config")
 
