@@ -47,7 +47,12 @@ function apt_update_and_install() {
 
   # Install system-level dependencies
   echo 'Installing system-level dependencies...this may take a while.'
-  sudo apt-get install --no-install-recommends -y nano clang python3-dev python3-venv libasound2-dev avahi-daemon apache2 ufw python3-smbus i2c-tools netcat-traditional python3-RPi.GPIO | sed 's/^/     /'
+  sudo apt-get install --no-install-recommends -y \
+    nano clang python3-dev python3-venv \
+    libasound2-dev alsa-utils \
+    avahi-daemon apache2 ufw \
+    python3-smbus i2c-tools netcat-traditional python3-RPi.GPIO \
+    swig liblgpio-dev | sed 's/^/     /'
 }
 
 function init_venv() {
@@ -154,9 +159,9 @@ function disable_pwr_mgmt() {
 }
 
 function disable_onboard_audio() {
-  sudo cp /boot/config.txt /boot/config.bak
   echo 'Disabling RaspberryPi on-board audio adapter'
   CONFIG='/boot/firmware/config.txt'
+  sudo cp "$CONFIG" "${CONFIG}.bak"
   SETTING='off'
   sudo sed $CONFIG -i -r -e "s/^((device_tree_param|dtparam)=([^,]*,)*audio?)(=[^,]*)?/\1=$SETTING/"
   if ! grep -q -E '^(device_tree_param|dtparam)=([^,]*,)*audio?=[^,]*' $CONFIG; then
