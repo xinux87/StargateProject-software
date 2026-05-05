@@ -1,6 +1,6 @@
 from adafruit_motorkit import MotorKit # pylint: disable=import-error
 from adafruit_motor import stepper as stp
-# import neopixel # pylint: disable=import-error
+import neopixel # pylint: disable=import-error
 import board # pylint: disable=import-error
 from gpiozero import LED # pylint: disable=import-error
 
@@ -43,7 +43,7 @@ class Electronics_Servo:
         self._stepper_microsteps = 16
 
         #configuration for the ledring.
-        self.neopixel_pin = board.D12
+        self.neopixel_pin = board.D18
         self.neopixel_led_count = 122
 
     # ------------------------------------------ UNUSSED
@@ -145,8 +145,8 @@ class Electronics_Servo:
         return 0
 
     def init_neopixels(self):
-        self.neopixels = NeopixelSim(self.neopixel_led_count)
-        #self.neopixels = neopixel.NeoPixel(self.neopixel_pin, self.neopixel_led_count, auto_write=False, brightness=0.61)
+        #self.neopixels = NeopixelSim(self.neopixel_led_count)
+        self.neopixels = neopixel.NeoPixel(self.neopixel_pin, self.neopixel_led_count, auto_write=False, brightness=0.61)
 
     def get_wormhole_pixels(self):
         return self.neopixels
