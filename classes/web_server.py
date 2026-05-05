@@ -68,16 +68,9 @@ class StargateWebServer(SimpleHTTPRequestHandler):
                     "gate_name":                      self.stargate.addr_manager.get_book().get_local_gate_name(),
                     "local_stargate_address":         self.stargate.addr_manager.get_book().get_local_address(),
                     "local_stargate_address_string":  self.stargate.addr_manager.get_book().get_local_address_string(),
-                    "subspace_public_key":            None,
-                    "subspace_ip_address_config":     None,
-                    "subspace_ip_address_active":     None,
                     "lan_ip_address":                 self.stargate.net_tools.get_ip_by_interface_list( [ 'wlan0', 'eth0', 'en0', 'en1' ] ),
-                    "software_version":               str(self.stargate.sw_updater.get_current_version()),
-                    "software_update_last_check":     self.stargate.cfg.get('software_update_last_check'),
-                    "software_update_status":         self.stargate.cfg.get('software_update_status'),
                     "python_version":                 platform.python_version(),
                     "internet_available":             False,
-                    "subspace_available":             False,
                     "standard_gate_count":            len(self.stargate.addr_manager.get_book().get_standard_gates()),
                     "fan_gate_count":                 len(self.stargate.addr_manager.get_book().get_fan_gates()),
                     "lan_gate_count":                 len(self.stargate.addr_manager.get_book().get_lan_gates()),
@@ -235,14 +228,6 @@ class StargateWebServer(SimpleHTTPRequestHandler):
                 else:
                     data = { "success": False, "message": "A wormhole is already established." }
 
-            elif self.path == "/do/subspace_up":
-                print("Subspace UP")
-                data = { "success": False, "message": "API NOT IMPLEMENTED" }
-
-            elif self.path == "/do/subspace_down":
-                print("Subspace DOWN")
-                data = { "success": False, "message": "API NOT IMPLEMENTED" }
-
             elif self.path == "/do/dhd_press":
                 symbol_number = int(data['symbol'])
 
@@ -333,9 +318,6 @@ class StargateWebServer(SimpleHTTPRequestHandler):
                 if continue_to_save:
                     self.stargate.addr_manager.get_book().set_local_address(address)
                     data = { "success": True, "message": "There are no conflicts with your chosen address.<br><br>Local Address Saved." }
-
-            elif self.path == '/update/subspace_ip':
-                data = { "success": False, "message": "Subspace not available." }
 
             elif self.path == '/update/config':
                 try:

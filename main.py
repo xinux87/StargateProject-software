@@ -20,7 +20,6 @@ sys.path.append('config')
 
 from stargate_config import StargateConfig
 from ancients_log_book import AncientsLogBook
-from software_update_v2 import SoftwareUpdateV2
 from stargate_audio import StargateAudio
 from web_server import StargateWebServer
 
@@ -104,12 +103,7 @@ class GateApplication:
         self.net_tools = NetworkTools(self.log)
         self.schedule = schedule # Alias the class here so it can be used in other areas with a clear interface
 
-        ### Check for new software updates ###
-        self.sw_updater = SoftwareUpdateV2(self)
-        ##if self.cfg.get("software_update_enabled"):
-        ##    self.sw_updater.check_and_install()
-
-        self.log.log(f'Booting up the Stargate! Version {self.sw_updater.get_current_version()}')
+        self.log.log('Booting up the Stargate!')
 
         # Actually start it...
         self.stargate = Stargate(self)

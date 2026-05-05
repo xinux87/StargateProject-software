@@ -16,12 +16,9 @@ source functions.sh
 echo 'Starting...'
 verify_stargate_software_or_exit
 
-enable_ssh
-#configure_hostname
-#copy_wpa_supplicant
-#config_users_and_passwords
+#enable_ssh
+configure_hostname
 
-configure_git
 set_permissions
 do_hardware_config
 apt_update_and_install
@@ -35,7 +32,6 @@ disable_onboard_audio
 configure_audio
 configure_logrotate
 configure_systemd_service
-#configure_wireguard
 
 # configure_firewall_ufw # Requires a reboot to complete w/o error.
 
@@ -43,9 +39,9 @@ echo
 echo
 echo 'Setup complete. The machine will now reboot.'
 echo
-echo ' Connect via SSH: `ssh pi@stargate.local`'
+echo " Connect via SSH: \`ssh $REAL_USER@stargate.local\`"
 echo ' Open the web interface `http://stargate.local`'
 echo
 echo
-#sudo reboot
+sudo reboot
 exit 0

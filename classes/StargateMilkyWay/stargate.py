@@ -24,7 +24,6 @@ class Stargate:
         self.electronics = app.electronics
         self.base_path = app.base_path
         self.net_tools = app.net_tools
-        self.sw_updater = self.app.sw_updater
         self.schedule = app.schedule
         self.galaxy = app.galaxy
         self.galaxy_path = app.galaxy_path
@@ -45,8 +44,6 @@ class Stargate:
         self.locked_chevrons_incoming = 0 # The current number of locked outgoing chevrons
         self.wormhole_active = False # The state of the wormhole.
         self.black_hole = False # Did we dial the black hole?
-        self.fan_gate_online_status = True # To keep track of the dialed fan_gate status. Assume it's online until proven otherwise
-        self.fan_gate_incoming_ip = None # To keep track of the IP address for the remote gate that establishes a wormhole
         self.connected_planet_name = None
         self.dhd_test = False
 
@@ -80,8 +77,6 @@ class Stargate:
         self.locked_chevrons_incoming = 0 # The current number of locked outgoing chevrons
         self.wormhole_active = False # The state of the wormhole.
         self.black_hole = False # Did we dial the black hole?
-        self.fan_gate_online_status = True # To keep track of the dialed fan_gate status. Assume it's online until proven otherwise
-        self.fan_gate_incoming_ip = None # To keep track of the IP address for the remote gate that establishes a wormhole
         self.connected_planet_name = None
 
     def update(self):
@@ -199,9 +194,7 @@ class Stargate:
 
         if self.wormhole_active == 'outgoing':
             return self.addr_manager.get_planet_name_by_address(self.address_buffer_outgoing)
-        if self.wormhole_active == 'incoming':
-            return self.addr_manager.get_planet_name_from_ip(self.fan_gate_incoming_ip)
-        # Not connected
+        # Not connected (or incoming with unknown origin)
         return False
 
     def establishing_wormhole(self):

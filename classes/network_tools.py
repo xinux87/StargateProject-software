@@ -43,19 +43,6 @@ class NetworkTools:
             my_sock.close()
         return ret
 
-    def get_subspace_ip(self, subspace_only = False):
-        # Try to get the IP from subspace
-        subspace = self.get_ip_by_interface_list( ['subspace'] )
-        if subspace:
-            return subspace
-
-        if not subspace_only:
-            lan = self.get_ip_by_interface_list( [ 'wlan0', 'eth0', 'en0', 'en1' ] )
-            if lan:
-                return lan
-
-        return None
-
     def get_ip_by_interface_list(self, interfaces):
 
         # Try to get the IP from each of the interfaces, in order. Return the first one.

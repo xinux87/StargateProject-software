@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Detect the real user even when invoked via sudo
+REAL_USER=${SUDO_USER:-$(whoami)}
+USER_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
+
 function disable_onboard_audio() {
   # Disable the onboard audio adapter
   sudo cp /boot/config.txt /boot/config.bak
@@ -18,7 +22,7 @@ function configure_audio() {
   echo 'Configuring ALSA to use external USB audio adapter'
   CONFIG='/usr/share/alsa/alsa.conf'
   TEMP='alsa.temp'
-  SETTING='2'
+  SETTING='1'
   sudo cp $CONFIG $TEMP
   sudo sed -i -e "s/defaults\.ctl\.card [01]/defaults.ctl.card $SETTING/g" \
   -e "s/defaults\.ctl\.card [01]/defaults.ctl.card $SETTING/g" $TEMP
