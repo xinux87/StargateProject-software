@@ -21,8 +21,8 @@ function enable_ssh() {
 function set_permissions() {
   # Set permissions on the scripts
   echo 'Configuring permissions on Stargate Scripts'
-  sudo chmod u+x "$SG1_DIR/util/"*
-  sudo chmod u+x "$SG1_DIR/scripts/"*
+  [ -d "$SG1_DIR/util" ] && sudo chmod u+x "$SG1_DIR/util/"*
+  [ -d "$SG1_DIR/scripts" ] && sudo chmod u+x "$SG1_DIR/scripts/"*
 }
 
 function do_hardware_config() {
