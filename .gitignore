@@ -60,3 +60,6 @@ dmypy.json
 # Apple metadata files
 .DS_Store
 /.claude
+
+# Ficheros locales — no sincronizar con git
+*.local.md
