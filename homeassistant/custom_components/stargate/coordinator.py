@@ -5,6 +5,7 @@ from datetime import timedelta
 
 import aiohttp
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,18 +26,16 @@ class StargateCoordinator(DataUpdateCoordinator):
         self.base_url = f"http://{host}:{port}"
         self.system_info: dict = {}
         self.address_book: list[dict] = []
-        self._session: aiohttp.ClientSession | None = None
 
     def _get_session(self) -> aiohttp.ClientSession:
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
-        return self._session
+        return async_get_clientsession(self.hass)
 
     async def async_get(self, path: str) -> dict:
         session = self._get_session()
         async with session.get(
             f"{self.base_url}{path}",
             timeout=aiohttp.ClientTimeout(total=5),
+            ssl=False,
         ) as resp:
             resp.raise_for_status()
             return await resp.json(content_type=None)
@@ -47,6 +46,7 @@ class StargateCoordinator(DataUpdateCoordinator):
             f"{self.base_url}{path}",
             json=data or {},
             timeout=aiohttp.ClientTimeout(total=10),
+            ssl=False,
         ) as resp:
             resp.raise_for_status()
             return await resp.json(content_type=None)

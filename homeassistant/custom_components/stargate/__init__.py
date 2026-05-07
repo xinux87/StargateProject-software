@@ -26,7 +26,5 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        coordinator: StargateCoordinator = hass.data[DOMAIN].pop(entry.entry_id)
-        if coordinator._session and not coordinator._session.closed:
-            await coordinator._session.close()
+        hass.data[DOMAIN].pop(entry.entry_id)
     return unload_ok
