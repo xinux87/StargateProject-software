@@ -135,7 +135,12 @@ class Stargate:
         """
         if len(self.address_buffer_outgoing) > self.locked_chevrons_outgoing:
             if self.silence_mode:
-                sleep(self.cfg.get("silence_mode_dial_delay"))  # Simulate ring movement time
+                # Interruptible delay: exits early if silence mode is turned off mid-dial
+                elapsed = 0.0
+                delay = self.cfg.get("silence_mode_dial_delay")
+                while elapsed < delay and self.silence_mode and self.running:
+                    sleep(0.05)
+                    elapsed += 0.05
             else:
                 self.ring.move_symbol_to_chevron(self.address_buffer_outgoing[self.locked_chevrons_outgoing], self.locked_chevrons_outgoing + 1)  # Dial the symbol
             self.locked_chevrons_outgoing += 1  # Increment the locked chevrons variable.

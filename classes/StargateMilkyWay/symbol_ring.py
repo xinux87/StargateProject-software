@@ -156,6 +156,10 @@ class SymbolRing:
             if not self.stargate.running:
                 break
 
+            # Stop immediately if silence mode is activated mid-movement
+            if self.stargate.silence_mode:
+                break
+
             # Move the stepper one step
             stepper_drive_mode = self.stargate.electronics.get_stepper_drive_mode(self.cfg.get("stepper_drive_mode"))
             self.stepper.onestep(direction=direction, style=stepper_drive_mode)
