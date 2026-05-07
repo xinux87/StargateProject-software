@@ -58,10 +58,10 @@ Registro de cambios realizados por sesiones de trabajo con Claude Code.
 
 ### Proceso de deployment usado
 
-1. `ssh-copy-id sg1@10.10.13.146` — clave SSH sin contraseña
+1. `ssh-copy-id sg1@<IP_DE_LA_PI>` — clave SSH sin contraseña
 2. `sudo apt-get install -y git` — git no estaba instalado
 3. `git clone -b sg1_without_internet <repo> ~/sg1_v4`
-4. `rsync -av ./soundfx/ sg1@10.10.13.146:/home/sg1/sg1_v4/soundfx/` — 382 MB de audio fuera del repo
+4. `rsync -av ./soundfx/ sg1@<IP_DE_LA_PI>:/home/sg1/sg1_v4/soundfx/` — 382 MB de audio fuera del repo
 5. `sudo bash install.sh` — instalador completo (apt, venv, apache, systemd)
 6. Correcciones iterativas vía rsync de ficheros individuales + `systemctl restart`
 
@@ -72,7 +72,7 @@ stargate.service: active (running)
 Hardware: Electronics Servo PCA9685 Board + Adafruit HAT
 I2C detectado: [0x40, 0x60]
 Audio: USB AB13X (card 0), playback via aplay subprocess
-API: http://10.10.13.146:8080
+API: http://<IP_DE_LA_PI>:8080
 ```
 
 ---

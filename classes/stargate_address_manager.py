@@ -77,7 +77,7 @@ class StargateAddressManager:
         :param stargate_object: The stargate object. This is used to rule out self dialing.
         :param dialed_address: a stargate address. It does not need to be complete. eg: [10, 15, 8, 24]
         :param known_fan_made_stargates: This is a dictionary of known stargates. eg:
-                {'Kristian Tysse': [[7, 32, 27, 18, 12, 16], '192.168.10.129'],
+                {'Example Gate': [[7, 32, 27, 18, 12, 16], '192.0.2.1'],
                 'Someone else': [[7, 32, 27, 18, 12, 16], '1.2.3.4']
                 }
         :return: True if we are dialing a fan made address, False if not.

@@ -538,7 +538,7 @@ definitions:
         - standard_gate
       ip_address:
         type: string
-        example: 172.30.0.2
+        example: 192.0.2.1
   inline_response_200:
     type: object
     properties:
@@ -597,7 +597,7 @@ definitions:
         example: 172.0.0.5
       lan_ip_address:
         type: string
-        example: 192.168.1.105
+        example: 192.0.2.2
       software_version:
         type: string
         example: 4.0.0

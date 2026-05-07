@@ -12,7 +12,7 @@ set -euo pipefail
 # Configuración — se puede sobreescribir con variables de entorno
 # o en scripts/deploy.local.conf (gitignoreado)
 # ──────────────────────────────────────────────────────────────────────────────
-PI_HOST="${PI_HOST:-10.10.13.146}"
+PI_HOST="${PI_HOST:-stargate.local}"
 PI_USER="${PI_USER:-sg1}"
 PI_PATH="${PI_PATH:-/home/sg1/sg1_v4}"
 SUDO_PASS="${SUDO_PASS:-}"

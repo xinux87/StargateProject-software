@@ -34,7 +34,7 @@ Kristian's Stargate Project (SG1 v4) — a Python control system for a 3D-printe
 sudo apt-get install -y git
 
 # 2. Clone the repo
-git clone -b sg1_without_internet https://github.com/xinux87/StargateProject-software.git ~/sg1_v4
+git clone -b sg1_without_internet https://github.com/jonnerd154/StargateProject-software.git ~/sg1_v4
 
 # 3. Copy soundfx directory (not in git, ~400 MB) from your machine:
 #    rsync -av ./soundfx/ sg1@<pi-ip>:/home/sg1/sg1_v4/soundfx/
