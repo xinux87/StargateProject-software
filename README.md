@@ -59,6 +59,58 @@ This variant drives the 9 chevrons with **continuous-rotation servo motors** con
 
 The servo throttle values (speed and direction for lock/unlock) are defined in `classes/StargateMilkyWay/chevrons.py`.
 
+## Home Assistant Integration
+
+A custom component is included to integrate the Stargate with [Home Assistant](https://www.home-assistant.io/).
+
+### Installation
+
+1. Copy the `homeassistant/custom_components/stargate/` folder into your Home Assistant `config/custom_components/` directory.
+2. Restart Home Assistant.
+3. Go to **Settings → Devices & Services → Add Integration** and search for **Stargate**.
+4. Enter the IP address and port of your Stargate (default port: `8080`).
+
+The integration also supports **automatic discovery** via Zeroconf if your Stargate and Home Assistant are on the same network.
+
+### Entities
+
+All entities are grouped under a single **Stargate** device.
+
+| Entity | Type | Description |
+|---|---|---|
+| State | Sensor | Current gate state: `idle`, `dialing`, or `open` |
+| Locked Chevrons | Sensor | Number of chevrons currently locked (0–9) |
+| Connected Planet | Sensor | Name of the connected planet, or empty when idle |
+| Wormhole Remaining | Sensor | Seconds until the wormhole closes (duration) |
+| Wormhole Active | Binary Sensor | `on` while a wormhole is open |
+| Dialing | Binary Sensor | `on` while a dialing sequence is in progress |
+| Target Planet | Select | Dial any planet from the address book; select `Standby` to abort |
+| Volume | Number | Audio volume (0–100 slider) |
+| Silence Mode | Switch | When `on`, only LEDs activate during dialing — motors and audio are disabled |
+| Wormhole Open | Button | Open a wormhole manually |
+| Wormhole Close | Button | Close the active wormhole |
+| Simulate Incoming | Button | Trigger an incoming wormhole simulation |
+| Abort Dial | Button | Cancel an in-progress dialing sequence |
+
+### Example automation
+
+```yaml
+automation:
+  - alias: "Close wormhole when I leave home"
+    trigger:
+      - platform: state
+        entity_id: person.your_name
+        to: "not_home"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.stargate_wormhole_active
+        state: "on"
+    action:
+      - service: button.press
+        target:
+          entity_id: button.stargate_wormhole_close
+```
+
 ## Credits
 - Kristian Tysse designed and wrote all of the original code, most of which is still in use today's program.
 - Jonathan Moyes restructured the code and extended it to include additional functionalities.
