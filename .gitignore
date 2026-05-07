@@ -63,3 +63,7 @@ dmypy.json
 
 # Ficheros locales — no sincronizar con git
 *.local.md
+scripts/deploy.local.conf
+
+# Runtime state files (live on the Pi, not in git)
+config/milkyway-silence_mode.json

@@ -2,6 +2,7 @@ from threading import Thread
 from time import time, sleep
 from random import randrange
 
+from stargate_config import StargateConfig
 from symbol_manager import StargateSymbolManager
 from chevrons import ChevronManager
 from dialers import Dialer
@@ -46,6 +47,12 @@ class Stargate:
         self.black_hole = False # Did we dial the black hole?
         self.connected_planet_name = None
         self.dhd_test = False
+
+        # Load silence_mode from persistent store
+        self.silence_store = StargateConfig(self.base_path, "silence_mode", self.galaxy_path)
+        self.silence_store.set_log(self.log)
+        self.silence_store.load()
+        self.silence_mode = self.silence_store.get('silence_mode')
 
         ### Set up the needed classes and make them ready to use ###
         self.symbol_manager = StargateSymbolManager(self.galaxy_path)
@@ -127,7 +134,10 @@ class Stargate:
         :return: Nothing is returned
         """
         if len(self.address_buffer_outgoing) > self.locked_chevrons_outgoing:
-            self.ring.move_symbol_to_chevron(self.address_buffer_outgoing[self.locked_chevrons_outgoing], self.locked_chevrons_outgoing + 1)  # Dial the symbol
+            if self.silence_mode:
+                sleep(self.cfg.get("silence_mode_dial_delay"))  # Simulate ring movement time
+            else:
+                self.ring.move_symbol_to_chevron(self.address_buffer_outgoing[self.locked_chevrons_outgoing], self.locked_chevrons_outgoing + 1)  # Dial the symbol
             self.locked_chevrons_outgoing += 1  # Increment the locked chevrons variable.
 
             # If the gate shutdown requested, play the stop-dialing sound, and stop doing things.
@@ -306,3 +316,9 @@ class Stargate:
             len(self.address_buffer_incoming) > 0 and self.addr_manager.valid_planet(self.address_buffer_incoming) ):
             return True
         return False
+
+    def set_silence_mode(self, value: bool):
+        self.silence_mode = value
+        self.silence_store.set_non_persistent('silence_mode', value)
+        self.silence_store.save()
+        self.log.log(f'Silence mode: {"ON" if value else "OFF"}')

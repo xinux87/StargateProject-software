@@ -369,5 +369,13 @@
     "min_value": 0,
     "max_value": false,
     "units": "Minutes"
+  },
+  "silence_mode_dial_delay": {
+    "value": 2.0,
+    "desc": "In silence mode, delay between chevron locks to simulate ring movement time (motors and audio disabled).",
+    "type": "float",
+    "min_value": 0,
+    "max_value": 30,
+    "units": "Seconds"
   }
 }

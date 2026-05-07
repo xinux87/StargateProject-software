@@ -1,0 +1,7 @@
+{
+  "silence_mode": {
+    "value": false,
+    "desc": "When true, only LEDs activate during dialing — motors and audio are disabled.",
+    "type": "bool"
+  }
+}

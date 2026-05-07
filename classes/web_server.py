@@ -60,7 +60,8 @@ class StargateWebServer(SimpleHTTPRequestHandler):
                     "wormhole_max_time":        self.stargate.wh_manager.wormhole_max_time,
                     "wormhole_time_till_close": self.stargate.wh_manager.get_time_remaining(),
                     "ring_position":            self.stargate.ring.get_position(),
-                    "speed_dial_full_address":  self.stargate.cfg.get('dialing_address_book_dials_full_address')
+                    "speed_dial_full_address":  self.stargate.cfg.get('dialing_address_book_dials_full_address'),
+                    "silence_mode":             self.stargate.silence_mode
                 }
 
             elif request_path == "/get/system_info":
@@ -249,6 +250,10 @@ class StargateWebServer(SimpleHTTPRequestHandler):
             elif self.path == "/do/set_glyph_ring_zero":
                 self.stargate.ring.zero_position()
                 data = { "success": True }
+
+            elif self.path == "/do/toggle_silence_mode":
+                self.stargate.set_silence_mode(not self.stargate.silence_mode)
+                data = { "success": True, "silence_mode": self.stargate.silence_mode }
 
             elif self.path == "/do/dhd_test_enable":
                 self.stargate.keyboard.enable_dhd_test(True)
