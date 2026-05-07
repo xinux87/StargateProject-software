@@ -42,13 +42,18 @@ class StargateTargetPlanetSelect(CoordinatorEntity, SelectEntity):
 
     @property
     def options(self) -> list[str]:
-        return [p["name"] for p in self.coordinator.address_book if p.get("name")]
+        return ["Standby"] + [p["name"] for p in self.coordinator.address_book if p.get("name")]
 
     @property
-    def current_option(self) -> str | None:
-        return (self.coordinator.data or {}).get("connected_planet") or None
+    def current_option(self) -> str:
+        return (self.coordinator.data or {}).get("connected_planet") or "Standby"
 
     async def async_select_option(self, option: str) -> None:
+        if option == "Standby":
+            await self.coordinator.async_post("/do/clear_outgoing_buffer")
+            await self.coordinator.async_request_refresh()
+            return
+
         planet = next(
             (p for p in self.coordinator.address_book if p.get("name") == option),
             None,

@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Conectar al Stargate",
+        "data": {
+          "host": "Host / Dirección IP",
+          "port": "Puerto"
+        }
+      },
+      "zeroconf_confirm": {
+        "title": "Stargate detectado",
+        "description": "Se ha encontrado **{name}** en `{host}`. ¿Deseas añadirlo?"
+      }
+    },
+    "error": {
+      "cannot_connect": "No se puede conectar. Comprueba el host y el puerto."
+    },
+    "abort": {
+      "already_configured": "Este Stargate ya está configurado.",
+      "not_stargate_device": "El dispositivo detectado no es un Stargate.",
+      "cannot_connect": "No se puede conectar al dispositivo detectado."
+    }
+  }
+}
