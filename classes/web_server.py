@@ -61,7 +61,10 @@ class StargateWebServer(SimpleHTTPRequestHandler):
                     "wormhole_time_till_close": self.stargate.wh_manager.get_time_remaining(),
                     "ring_position":            self.stargate.ring.get_position(),
                     "speed_dial_full_address":  self.stargate.cfg.get('dialing_address_book_dials_full_address'),
-                    "silence_mode":             self.stargate.silence_mode
+                    "silence_mode":             self.stargate.silence_mode,
+                    "lamp_mode":                self.stargate.lamp_mode,
+                    "lamp_color":               list(self.stargate.lamp_color),
+                    "lamp_brightness":          self.stargate.lamp_brightness
                 }
 
             elif request_path == "/get/system_info":
@@ -108,6 +111,13 @@ class StargateWebServer(SimpleHTTPRequestHandler):
 
             elif request_path == '/get/audio_clips':
                 data = self.stargate.audio.list_clips()
+
+            elif request_path == '/get/lamp_status':
+                data = {
+                    "lamp_mode":   self.stargate.lamp_mode,
+                    "color":       list(self.stargate.lamp_color),
+                    "brightness":  self.stargate.lamp_brightness
+                }
 
             else:
                 # Unhandled GET request: send a 404
@@ -189,6 +199,8 @@ class StargateWebServer(SimpleHTTPRequestHandler):
                 data = { "success": True }
 
             elif self.path == "/do/wormhole_on":
+                if self.stargate.lamp_mode:
+                    self.stargate.set_lamp_mode(False)
                 if not self.stargate.wormhole_active:
                     self.stargate.wormhole_active = True
                     data = { "success": True }
@@ -196,6 +208,8 @@ class StargateWebServer(SimpleHTTPRequestHandler):
                     data = { "success": False, "message": "A wormhole is already established." }
 
             elif self.path == "/do/wormhole_off":
+                if self.stargate.lamp_mode:
+                    self.stargate.set_lamp_mode(False)
                 self.stargate.wormhole_active = False
                 data = { "success": True }
 
@@ -218,6 +232,8 @@ class StargateWebServer(SimpleHTTPRequestHandler):
                 data = { "success": True }
 
             elif self.path == "/do/simulate_incoming":
+                if self.stargate.lamp_mode:
+                    self.stargate.set_lamp_mode(False)
                 if not self.stargate.wormhole_active: # If we don't already have an established wormhole
                     # Get the loopback address and dial it
                     for symbol_number in self.stargate.addr_manager.get_book().get_local_loopback_address():
@@ -230,6 +246,8 @@ class StargateWebServer(SimpleHTTPRequestHandler):
                     data = { "success": False, "message": "A wormhole is already established." }
 
             elif self.path == "/do/dhd_press":
+                if self.stargate.lamp_mode:
+                    self.stargate.set_lamp_mode(False)
                 symbol_number = int(data['symbol'])
 
                 if symbol_number > 0:
@@ -244,6 +262,8 @@ class StargateWebServer(SimpleHTTPRequestHandler):
                 data = { "success": True }
 
             elif self.path == "/do/clear_outgoing_buffer":
+                if self.stargate.lamp_mode:
+                    self.stargate.set_lamp_mode(False)
                 self.stargate.shutdown(cancel_sound=False, wormhole_fail_sound=False)
                 data = { "success": True }
 
@@ -254,6 +274,34 @@ class StargateWebServer(SimpleHTTPRequestHandler):
             elif self.path == "/do/toggle_silence_mode":
                 self.stargate.set_silence_mode(not self.stargate.silence_mode)
                 data = { "success": True, "silence_mode": self.stargate.silence_mode }
+
+            elif self.path == '/do/lamp_on':
+                color = data.get('color')
+                brightness = data.get('brightness')
+                self.stargate.set_lamp_mode(True, color=color, brightness=brightness)
+                data = {
+                    "success": True,
+                    "lamp_mode": True,
+                    "color": list(self.stargate.lamp_color),
+                    "brightness": self.stargate.lamp_brightness
+                }
+
+            elif self.path == '/do/lamp_off':
+                self.stargate.set_lamp_mode(False)
+                data = { "success": True, "lamp_mode": False }
+
+            elif self.path == '/do/lamp_set':
+                if not self.stargate.lamp_mode:
+                    data = { "success": False, "message": "Lamp mode is not active." }
+                else:
+                    color = data.get('color')
+                    brightness = data.get('brightness')
+                    self.stargate.lamp_set(color=color, brightness=brightness)
+                    data = {
+                        "success": True,
+                        "color": list(self.stargate.lamp_color),
+                        "brightness": self.stargate.lamp_brightness
+                    }
 
             elif self.path == "/do/dhd_test_enable":
                 self.stargate.keyboard.enable_dhd_test(True)

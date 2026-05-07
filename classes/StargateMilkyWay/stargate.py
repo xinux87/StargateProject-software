@@ -54,6 +54,11 @@ class Stargate:
         self.silence_store.load()
         self.silence_mode = self.silence_store.get('silence_mode')
 
+        # Lamp mode state (LED strip used as a plain RGB light)
+        self.lamp_mode = False
+        self.lamp_color = (255, 255, 255)  # RGB
+        self.lamp_brightness = 255         # 0-255
+
         ### Set up the needed classes and make them ready to use ###
         self.symbol_manager = StargateSymbolManager(self.galaxy_path)
         self.addr_manager = StargateAddressManager(self)
@@ -94,8 +99,18 @@ class Stargate:
         """
         while self.running: # If we have not aborted
 
+            # Auto-exit lamp mode if any Stargate activity is detected
+            if self.lamp_mode and (
+                len(self.address_buffer_outgoing) > 0 or
+                len(self.address_buffer_incoming) > 0 or
+                self.wormhole_active
+            ):
+                self.lamp_mode = False
+                self.wh_manager.animation_manager.clear_wormhole()
+                self.log.log('Lamp mode: auto-OFF (Stargate activity detected)')
+
             ### The Dialing phase###
-            if not self.wormhole_active and self.running: # If we are in the dialing phase
+            if not self.wormhole_active and self.running and not self.lamp_mode: # If we are in the dialing phase
 
                 ## Outgoing dialing ##
                 self.outgoing_dialing()
@@ -327,3 +342,41 @@ class Stargate:
         self.silence_store.set_non_persistent('silence_mode', value)
         self.silence_store.save()
         self.log.log(f'Silence mode: {"ON" if value else "OFF"}')
+
+    def set_lamp_mode(self, state: bool, color=None, brightness=None):
+        if state:
+            # Stop any active wormhole or dialing sequence cleanly
+            if self.wormhole_active:
+                self.wormhole_active = False
+                sleep(0.3)
+            self.shutdown(cancel_sound=False, wormhole_fail_sound=False)
+
+            if color is not None:
+                self.lamp_color = tuple(int(c) for c in color)
+            if brightness is not None:
+                self.lamp_brightness = max(0, min(255, int(brightness)))
+
+            self.lamp_mode = True
+            self._apply_lamp()
+        else:
+            self.lamp_mode = False
+            self.wh_manager.animation_manager.clear_wormhole()
+            self.log.log('Lamp mode: OFF')
+
+    def lamp_set(self, color=None, brightness=None):
+        if color is not None:
+            self.lamp_color = tuple(int(c) for c in color)
+        if brightness is not None:
+            self.lamp_brightness = max(0, min(255, int(brightness)))
+        if self.lamp_mode:
+            self._apply_lamp()
+
+    def _apply_lamp(self):
+        pixels = self.wh_manager.animation_manager.pixels
+        tot_leds = self.wh_manager.animation_manager.tot_leds
+        r, g, b = self.lamp_color
+        scale = self.lamp_brightness / 255.0
+        color = (int(r * scale), int(g * scale), int(b * scale))
+        pattern = [color] * tot_leds
+        self.wh_manager.animation_manager.set_wormhole_pattern(pattern)
+        self.log.log(f'Lamp mode: ON — color={self.lamp_color}, brightness={self.lamp_brightness}')
