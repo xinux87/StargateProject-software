@@ -50,6 +50,8 @@ The software automatically detects the connected hardware via I2C at startup and
 
 ### Servo variant (PCA9685 + Adafruit Motor HAT)
 
+> Full hardware details, BOM, wiring diagram and 3D files: [Stargate Readme Hardware PCA9685PW +Adafruit Servo Hat.md](Stargate%20Readme%20Hardware%20PCA9685PW%20%2BAdafruit%20Servo%20Hat.md)
+
 This variant drives the 9 chevrons with **continuous-rotation servo motors** controlled through a PCA9685 PWM board:
 
 - **PCA9685** (I2C `0x40`) — controls chevron servos on channels 0–6 (chevrons 1–7) via `ServoKit`.
