@@ -193,7 +193,7 @@ class Stargate:
                     pass  # Just pass without activating a chevron.
 
                 # Play the audio clip for incoming wormhole for the first chevron
-                if self.locked_chevrons_incoming == 1:
+                if self.locked_chevrons_incoming == 1 and not self.silence_mode:
                     self.audio.play_random_clip("IncomingWormhole")
 
                 self.last_activity_time = time()  # update the last_activity_time
@@ -279,11 +279,11 @@ class Stargate:
         self.log.log('Shutting down the gate...')
 
         # Play the cancel sound
-        if cancel_sound:
+        if cancel_sound and not self.silence_mode:
             self.audio.sound_start('dialing_cancel')
 
         # Play the wormhole fail sound
-        if wormhole_fail_sound:
+        if wormhole_fail_sound and not self.silence_mode:
             self.audio.sound_start('dialing_fail')
 
         # Turn off the chevrons

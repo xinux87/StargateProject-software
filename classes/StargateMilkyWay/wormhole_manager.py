@@ -47,7 +47,8 @@ class WormholeManager:
         Method for opening the wormhole. For some reason i did not use the fade_transition function here..
         :return: Nothing is returned.
         """
-        self.audio.sound_start('wormhole_open')  # Open wormhole audio
+        if not self.stargate.silence_mode:
+            self.audio.sound_start('wormhole_open')  # Open wormhole audio
         self.animation_manager.animate_kawoosh()
 
     def close_wormhole(self):
@@ -66,8 +67,9 @@ class WormholeManager:
 
         self.stargate.wormhole_active = True  # temporarily to be able to use the fade_transition function
         self.animation_manager.fade_transition(pattern_blue(self.tot_leds))
-        self.audio.sound_start('wormhole_close')  # Play the close wormhole audio
-        sleep(self.audio_wormhole_close_headstart)
+        if not self.stargate.silence_mode:
+            self.audio.sound_start('wormhole_close')  # Play the close wormhole audio
+            sleep(self.audio_wormhole_close_headstart)
         self.animation_manager.fade_transition(no_pattern)
 
         # Reset some state variables
@@ -92,7 +94,8 @@ class WormholeManager:
         self.open_wormhole()
 
         # this will play the worm hole active audio. It lasts about 4min 22sec. It is deliberately not looping or restarting.
-        self.audio.sound_start('wormhole_established')
+        if not self.stargate.silence_mode:
+            self.audio.sound_start('wormhole_established')
 
         self.open_time = time()
         random_audio_start_time = self.open_time
@@ -117,12 +120,12 @@ class WormholeManager:
             self.animation_manager.do_random_transitions(self.stargate.black_hole)
 
             # Play random audio clips if wormhole not closing
-            if self.audio_play_random_clips and self.stargate.wormhole_active and (time() - random_audio_start_time) > self.audio_clip_wait_time:  # If there has been "silence" for more than audio_clip_wait_time
+            if not self.stargate.silence_mode and self.audio_play_random_clips and self.stargate.wormhole_active and (time() - random_audio_start_time) > self.audio_clip_wait_time:  # If there has been "silence" for more than audio_clip_wait_time
                 self.audio.play_random_clip(audio_group) # Won't play if a clip is already playing
                 random_audio_start_time = time()
 
         # Wormhole is closing. Did it close because it ran out of power/time?
-        if self.get_time_remaining() < 1:  # if the wormhole closes due to the 38min time limit.
+        if not self.stargate.silence_mode and self.get_time_remaining() < 1:  # if the wormhole closes due to the 38min time limit.
             if self.audio.random_clip_is_playing():  # If the random audio clip is still playing:
                 self.audio.random_clip_wait_done()  # wait until it's finished.
 
