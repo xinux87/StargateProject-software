@@ -1,0 +1,12 @@
+{
+  "domain": "stargate",
+  "name": "Stargate SG1",
+  "version": "1.0.0",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "zeroconf": ["_http._tcp.local."]
+}

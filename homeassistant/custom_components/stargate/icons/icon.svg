@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Outer ring -->
+  <circle cx="128" cy="128" r="120" fill="none" stroke="#4a90d9" stroke-width="12"/>
+
+  <!-- Inner ring -->
+  <circle cx="128" cy="128" r="88" fill="none" stroke="#4a90d9" stroke-width="8"/>
+
+  <!-- 9 chevrons evenly spaced around the ring -->
+  <g fill="#4a90d9">
+    <!-- Chevron 1 - top (0°) -->
+    <polygon points="128,12 121,30 128,26 135,30" />
+    <!-- Chevron 2 - 40° -->
+    <polygon points="193,35 181,50 186,53 196,41" />
+    <!-- Chevron 3 - 80° -->
+    <polygon points="237,99 220,103 221,110 238,108" />
+    <!-- Chevron 4 - 120° -->
+    <polygon points="221,172 207,162 204,169 219,179" />
+    <!-- Chevron 5 - 160° -->
+    <polygon points="165,228 158,212 152,216 160,232" />
+    <!-- Chevron 6 - 200° -->
+    <polygon points="91,228 96,212 104,216 96,232" />
+    <!-- Chevron 7 - 240° -->
+    <polygon points="35,172 49,162 52,169 37,179" />
+    <!-- Chevron 8 - 280° -->
+    <polygon points="19,99 36,103 35,110 18,108" />
+    <!-- Chevron 9 - 320° -->
+    <polygon points="63,35 75,50 70,53 60,41" />
+  </g>
+
+  <!-- Wormhole center - glowing vortex -->
+  <circle cx="128" cy="128" r="72" fill="#0a1628"/>
+  <circle cx="128" cy="128" r="60" fill="none" stroke="#1e90ff" stroke-width="3" opacity="0.8"/>
+  <circle cx="128" cy="128" r="44" fill="none" stroke="#63b3ed" stroke-width="2" opacity="0.6"/>
+  <circle cx="128" cy="128" r="28" fill="none" stroke="#90cdf4" stroke-width="1.5" opacity="0.4"/>
+  <circle cx="128" cy="128" r="14" fill="#1e90ff" opacity="0.7"/>
+  <circle cx="128" cy="128" r="7"  fill="#ffffff" opacity="0.9"/>
+</svg>
