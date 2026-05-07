@@ -64,13 +64,12 @@ class StargateTargetPlanetSelect(CoordinatorEntity, SelectEntity):
 
         # Abort any current dial first
         await self.coordinator.async_post("/do/clear_outgoing_buffer")
-        await asyncio.sleep(0.3)
+        await asyncio.sleep(0.5)
 
-        # Dial each symbol
-        for symbol in address:
+        # Dial 6 destination symbols + point of origin (symbol 1) + center (symbol 0)
+        full_sequence = list(address) + [1, 0]
+        for symbol in full_sequence:
             await self.coordinator.async_post("/do/dhd_press", {"symbol": symbol})
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.2)
 
-        # Press centre to engage
-        await self.coordinator.async_post("/do/dhd_press", {"symbol": 0})
         await self.coordinator.async_request_refresh()
