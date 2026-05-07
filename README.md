@@ -87,10 +87,30 @@ All entities are grouped under a single **Stargate** device.
 | Target Planet | Select | Dial any planet from the address book; select `Standby` to abort |
 | Volume | Number | Audio volume (0–100 slider) |
 | Silence Mode | Switch | When `on`, only LEDs activate during dialing — motors and audio are disabled |
+| Lamp | Light | Control the LED strip as an RGB light (see below) |
 | Wormhole Open | Button | Open a wormhole manually |
 | Wormhole Close | Button | Close the active wormhole |
 | Simulate Incoming | Button | Trigger an incoming wormhole simulation |
 | Abort Dial | Button | Cancel an in-progress dialing sequence |
+
+### Lamp mode
+
+The **Lamp** entity exposes the NeoPixel LED strip (122 LEDs, WS2812B) as a standard Home Assistant `light` with full RGB color and brightness control.
+
+**Mutual exclusion:** lamp mode and Stargate mode are mutually exclusive.
+
+- Turning the lamp **on** cancels any active dialing sequence or wormhole and takes over the LED strip.
+- The lamp turns **off automatically** when any Stargate activity is detected: an incoming or outgoing symbol is received, a wormhole becomes active, or any of the 5 explicit actions are triggered via the API or HA buttons (Wormhole Open, Wormhole Close, Simulate Incoming, Abort Dial, DHD Press).
+- Turning the lamp **off** clears the LEDs and returns the gate to idle, ready for dialing.
+
+**API endpoints:**
+
+| Method | Path | Body | Description |
+|---|---|---|---|
+| `GET` | `/get/lamp_status` | — | Returns `lamp_mode`, `color [R,G,B]`, `brightness` |
+| `POST` | `/do/lamp_on` | `{"color": [R,G,B], "brightness": 0-255}` | Enable lamp mode (fields optional) |
+| `POST` | `/do/lamp_off` | — | Disable lamp mode, clear LEDs |
+| `POST` | `/do/lamp_set` | `{"color": [R,G,B], "brightness": 0-255}` | Update color/brightness while lamp is on |
 
 ### Example automation
 
