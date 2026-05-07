@@ -54,11 +54,11 @@ class StargateAudio:
                 self.log.log("Failed to start audio file - is the USB Audio adapter installed?")
 
     def sound_stop(self, clip_name):
-        if self.cfg.get('audio_enable'):
+        if self.cfg.get('audio_enable') and 'obj' in self.sounds.get(clip_name, {}):
             self.sounds[clip_name]['obj'].stop()
 
     def is_playing(self, clip_name):
-        if self.cfg.get('audio_enable'):
+        if self.cfg.get('audio_enable') and 'obj' in self.sounds.get(clip_name, {}):
             return self.sounds[clip_name]['obj'].is_playing()
         return False
 
