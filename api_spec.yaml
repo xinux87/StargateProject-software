@@ -19,6 +19,8 @@ tags:
   description: Operations to modify data on the Stargate
 - name: Dialing Actions
   description: Operations to execute DHD Dialing actions on the Stargate
+- name: Lamp Actions
+  description: Operations to control the LED strip as a lamp (independent of Stargate dialing)
 - name: Testing Actions
   description: Operations to test hardware features on the Stargate
 - name: Administrative Actions
@@ -220,6 +222,175 @@ paths:
           description: Update successful
         "500":
           description: server-side error
+  /get/lamp_status:
+    get:
+      tags:
+      - Lamp Actions
+      summary: Returns the current lamp mode state
+      description: |
+        Returns the current state of the LED lamp mode, including whether it is active,
+        the current color, brightness, and active animation.
+      operationId: get_lamp_status
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        "200":
+          description: Lamp status
+          schema:
+            $ref: '#/definitions/LampStatus'
+        "500":
+          description: Server-side error
+  /get/lamp_animations:
+    get:
+      tags:
+      - Lamp Actions
+      summary: Returns the list of available lamp animations
+      description: |
+        Returns the list of animation modes that can be applied to the lamp.
+        Each entry has an `id` (used in API calls) and a `name` (human-readable label).
+      operationId: get_lamp_animations
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        "200":
+          description: List of lamp animations
+          schema:
+            type: object
+            properties:
+              animations:
+                type: array
+                items:
+                  $ref: '#/definitions/LampAnimation'
+        "500":
+          description: Server-side error
+  /do/lamp_on:
+    post:
+      tags:
+      - Lamp Actions
+      summary: Enables lamp mode on the LED strip
+      description: |
+        Enables lamp mode, optionally setting color, brightness, and animation.
+        Disables any active wormhole or dialing sequence first.
+        All body fields are optional; omitted fields retain their previous values.
+      operationId: lamp_on
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        schema:
+          type: object
+          properties:
+            color:
+              type: array
+              items:
+                type: integer
+              minItems: 3
+              maxItems: 3
+              example: [0, 128, 255]
+              description: RGB color as [R, G, B], each 0-255
+            brightness:
+              type: integer
+              minimum: 0
+              maximum: 255
+              example: 200
+              description: Brightness scale 0-255
+            animation:
+              type: string
+              enum: [static, wormhole, black_hole, kawoosh]
+              example: wormhole
+              description: Animation ID to activate
+      responses:
+        "200":
+          description: Lamp enabled
+          schema:
+            $ref: '#/definitions/LampStatus'
+        "500":
+          description: Server-side error
+  /do/lamp_off:
+    post:
+      tags:
+      - Lamp Actions
+      summary: Disables lamp mode and clears the LED strip
+      description: Disables lamp mode and turns off all wormhole LEDs.
+      operationId: lamp_off
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        "200":
+          description: Lamp disabled
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: true
+              lamp_mode:
+                type: boolean
+                example: false
+        "500":
+          description: Server-side error
+  /do/lamp_set:
+    post:
+      tags:
+      - Lamp Actions
+      summary: Updates lamp color, brightness, or animation while lamp is active
+      description: |
+        Updates one or more lamp parameters while lamp mode is already active.
+        Returns an error if lamp mode is not currently on.
+        Changing `animation` from `static` to a dynamic one starts the animation thread immediately.
+      operationId: lamp_set
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        schema:
+          type: object
+          properties:
+            color:
+              type: array
+              items:
+                type: integer
+              minItems: 3
+              maxItems: 3
+              example: [255, 100, 0]
+            brightness:
+              type: integer
+              minimum: 0
+              maximum: 255
+              example: 180
+            animation:
+              type: string
+              enum: [static, wormhole, black_hole, kawoosh]
+              example: black_hole
+      responses:
+        "200":
+          description: Lamp parameters updated
+          schema:
+            $ref: '#/definitions/LampStatus'
+        "400":
+          description: Lamp mode is not active
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: Lamp mode is not active.
+        "500":
+          description: Server-side error
   /do/chevron_cycle:
     post:
       tags:
@@ -575,6 +746,60 @@ definitions:
       wormhole_time_till_close:
         type: number
         example: 2264.0
+      lamp_mode:
+        type: boolean
+        example: false
+        description: Whether the LED strip is in lamp mode
+      lamp_color:
+        type: array
+        items:
+          type: integer
+        example: [255, 255, 255]
+        description: Current lamp RGB color
+      lamp_brightness:
+        type: integer
+        example: 255
+        description: Current lamp brightness (0-255)
+      lamp_animation:
+        type: string
+        example: static
+        description: Active lamp animation ID
+  LampStatus:
+    type: object
+    properties:
+      success:
+        type: boolean
+        example: true
+      lamp_mode:
+        type: boolean
+        example: true
+      color:
+        type: array
+        items:
+          type: integer
+        minItems: 3
+        maxItems: 3
+        example: [0, 128, 255]
+      brightness:
+        type: integer
+        example: 200
+      lamp_animation:
+        type: string
+        example: wormhole
+  LampAnimation:
+    type: object
+    required:
+    - id
+    - name
+    properties:
+      id:
+        type: string
+        example: wormhole
+        description: Animation identifier used in API calls
+      name:
+        type: string
+        example: Wormhole Effect
+        description: Human-readable animation name
   inline_response_200_1:
     type: object
     properties:

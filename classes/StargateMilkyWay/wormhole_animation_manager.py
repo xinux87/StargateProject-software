@@ -67,7 +67,7 @@ class WormholeAnimationManager:
         rot = 1 if direction == 'cw' else -1
         total_steps = revolutions * len(current_pattern)
         for _ in range(total_steps):
-            if not self.stargate.wormhole_active:
+            if not self.stargate.wormhole_active and not self.stargate.lamp_animation_active:
                 return
             current_pattern.rotate(rot)
             self.set_wormhole_pattern(current_pattern)
@@ -122,7 +122,7 @@ class WormholeAnimationManager:
         ## These are the two lists we are working with.
         # print(current_pattern)
         # print(new_pattern)
-        while current_pattern != new_pattern and self.stargate.wormhole_active:
+        while current_pattern != new_pattern and (self.stargate.wormhole_active or self.stargate.lamp_animation_active):
             tween_pattern = create_tween_pattern(current_pattern, new_pattern)
             current_pattern = tween_pattern
             self.set_wormhole_pattern(tween_pattern)

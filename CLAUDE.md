@@ -183,20 +183,103 @@ Key config files:
 - `milkyway-addresses.json` — Planet address book (local, canon + fan gates)
 - `milkyway-ring_position.json` — Ring position persisted across reboots
 
+### Lamp Mode
+
+The LED wormhole strip can be repurposed as a generic RGB light (lamp mode), independent of Stargate dialing. Lamp mode state lives entirely in `Stargate` and is accessible via the REST API and Home Assistant.
+
+**State variables (`Stargate.__init__`):**
+| Variable | Type | Default | Description |
+|---|---|---|---|
+| `lamp_mode` | `bool` | `False` | Whether lamp mode is active |
+| `lamp_color` | `tuple[int,int,int]` | `(255,255,255)` | RGB color |
+| `lamp_brightness` | `int` | `255` | Brightness scale 0–255 |
+| `lamp_animation` | `str` | `'static'` | Active animation ID |
+| `lamp_animation_active` | `bool` | `False` | Set to `False` to stop animation thread |
+| `_lamp_animation_thread` | `Thread\|None` | `None` | Background daemon thread |
+
+**Available animations (`Stargate.LAMP_ANIMATIONS`):**
+
+| ID | Name | Description |
+|---|---|---|
+| `static` | Static Color | Solid color at configured RGB + brightness |
+| `wormhole` | Wormhole Effect | Continuous random fade/sweep transitions with standard blue patterns |
+| `black_hole` | Black Hole | Same transitions with red/dark palette |
+| `kawoosh` | Kawoosh Loop | Repeating kawoosh opening animation |
+
+**Control flow:**
+```
+set_lamp_mode(True, animation='wormhole')
+  → _stop_lamp_animation()          # stops any previous thread
+  → shutdown(...)                    # clears dialing state
+  → lamp_animation = 'wormhole'
+  → lamp_mode = True
+  → _start_lamp_animation()
+      → Thread(_run_lamp_animation)  # daemon=True
+
+_run_lamp_animation():
+  while lamp_animation_active and lamp_mode:
+    animation_manager.do_random_transitions()   # blocks per cycle
+
+set_lamp_mode(False)  OR  auto-off on Stargate activity:
+  → _stop_lamp_animation()           # sets lamp_animation_active=False, joins thread
+  → lamp_mode = False
+  → animation_manager.clear_wormhole()
+```
+
+**Auto-off:** `update()` calls `_stop_lamp_animation()` and clears lamp mode whenever `address_buffer_outgoing`, `address_buffer_incoming`, or `wormhole_active` become truthy.
+
+**Animation manager integration:** `WormholeAnimationManager.rotate_pattern()` and `fade_transition()` check `stargate.wormhole_active OR stargate.lamp_animation_active` as their stop condition, allowing both wormhole and lamp animation threads to drive them.
+
 ### Threading Model
 
 - Main thread: `stargate.update()` infinite loop
 - Daemon thread: HTTP web server (port 8080)
 - Daemon threads: keyboard input listeners
+- Daemon thread: lamp animation loop (when a non-static animation is active)
 - Scheduled tasks via `schedule` library
 
 ### Web API
 
-`classes/web_server.py` serves static files from `web/` and handles REST endpoints:
-- `GET /get/is_alive`, `/get/dialing_status`, `/get/system_info`, etc.
-- `POST` endpoints for control: dial, toggle wormhole, admin functions
+`classes/web_server.py` serves static files from `web/` and handles REST endpoints. The full API contract is in `api_spec.yaml` (OpenAPI/Swagger).
 
-The full API contract is in `api_spec.yaml` (OpenAPI/Swagger).
+**Lamp-related endpoints:**
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/get/lamp_status` | Returns current lamp state (mode, color, brightness, animation) |
+| `GET` | `/get/lamp_animations` | Returns list of available animations with `id` and `name` |
+| `POST` | `/do/lamp_on` | Enable lamp mode. Body: `{color, brightness, animation}` (all optional) |
+| `POST` | `/do/lamp_off` | Disable lamp mode |
+| `POST` | `/do/lamp_set` | Update color/brightness/animation while lamp is active |
+
+`/get/dialing_status` also includes `lamp_mode`, `lamp_color`, `lamp_brightness`, and `lamp_animation` so the HA coordinator gets everything in one poll.
+
+### Home Assistant Integration
+
+Custom component at `homeassistant/custom_components/stargate/`. Polls `/get/dialing_status` + `/get/system_info` every 2 seconds via `StargateCoordinator`.
+
+**Entities:**
+
+| File | Entity | Description |
+|---|---|---|
+| `light.py` | `{Gate} Lamp` | RGB light with brightness. Turn on/off, set color. |
+| `select.py` | `{Gate} Lamp Animation` | Dropdown: Static Color / Wormhole Effect / Black Hole / Kawoosh Loop |
+| `select.py` | `{Gate} Target Planet` | Dropdown to dial a destination planet |
+| `binary_sensor.py` | Wormhole Active, Dialing In Progress | State sensors |
+| `sensor.py` | State, Locked Chevrons, Connected Planet, Time Remaining | Sensors |
+| `button.py` | Wormhole Open/Close, Simulate Incoming, Abort Dial | Action buttons |
+| `switch.py` | Silence Mode | Toggle silence |
+| `number.py` | Volume | Slider 0–100 |
+
+**Lamp Animation selector behavior:**
+- If lamp is ON: sends `POST /do/lamp_set {"animation": id}` → switches animation instantly
+- If lamp is OFF: sends `POST /do/lamp_on {"animation": id}` → turns lamp on with selected animation
+
+**Setup:** `coordinator.async_setup()` fetches `/get/lamp_animations` once at startup (with a hardcoded fallback if the gate firmware is older).
+
+**Reload after update:**  
+HA: Developer Tools → YAML → Reload Custom Integrations, or restart HA.  
+Pi: `sudo systemctl restart stargate.service`
 
 ## Known Issues / Gaps
 
@@ -204,3 +287,4 @@ The full API contract is in `api_spec.yaml` (OpenAPI/Swagger).
 - Servo throttle values are hardcoded in `Chevron.__init__`, not config-driven.
 - Chevrons 8 and 9 use `DCMotorSim()` — not physically wired.
 - `configure_audio` in `install/functions.sh` hardcodes ALSA card `1`; the app corrects this at runtime via `set_correct_audio_output_device()`.
+- Lamp animation thread uses `t.join(timeout=3)` on stop — if a `do_random_transitions` cycle takes longer (e.g. slow fade on many LEDs), the thread may outlive the join.

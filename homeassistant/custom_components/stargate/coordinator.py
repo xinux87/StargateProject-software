@@ -26,6 +26,7 @@ class StargateCoordinator(DataUpdateCoordinator):
         self.base_url = f"http://{host}:{port}"
         self.system_info: dict = {}
         self.address_book: list[dict] = []
+        self.lamp_animations: list[dict] = []
 
     def _get_session(self) -> aiohttp.ClientSession:
         return async_get_clientsession(self.hass)
@@ -60,6 +61,16 @@ class StargateCoordinator(DataUpdateCoordinator):
             for key, entry in book.items()
             if entry.get("gate_address")
         ]
+        try:
+            anim_raw = await self.async_get("/get/lamp_animations")
+            self.lamp_animations = anim_raw.get("animations", [])
+        except Exception:  # pylint: disable=broad-except
+            self.lamp_animations = [
+                {"id": "static",     "name": "Static Color"},
+                {"id": "wormhole",   "name": "Wormhole Effect"},
+                {"id": "black_hole", "name": "Black Hole"},
+                {"id": "kawoosh",    "name": "Kawoosh Loop"},
+            ]
 
     async def _async_update_data(self) -> dict:
         try:

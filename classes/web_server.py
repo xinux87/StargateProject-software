@@ -64,7 +64,8 @@ class StargateWebServer(SimpleHTTPRequestHandler):
                     "silence_mode":             self.stargate.silence_mode,
                     "lamp_mode":                self.stargate.lamp_mode,
                     "lamp_color":               list(self.stargate.lamp_color),
-                    "lamp_brightness":          self.stargate.lamp_brightness
+                    "lamp_brightness":          self.stargate.lamp_brightness,
+                    "lamp_animation":           self.stargate.lamp_animation,
                 }
 
             elif request_path == "/get/system_info":
@@ -114,10 +115,14 @@ class StargateWebServer(SimpleHTTPRequestHandler):
 
             elif request_path == '/get/lamp_status':
                 data = {
-                    "lamp_mode":   self.stargate.lamp_mode,
-                    "color":       list(self.stargate.lamp_color),
-                    "brightness":  self.stargate.lamp_brightness
+                    "lamp_mode":       self.stargate.lamp_mode,
+                    "color":           list(self.stargate.lamp_color),
+                    "brightness":      self.stargate.lamp_brightness,
+                    "lamp_animation":  self.stargate.lamp_animation,
                 }
+
+            elif request_path == '/get/lamp_animations':
+                data = {"animations": self.stargate.LAMP_ANIMATIONS}
 
             else:
                 # Unhandled GET request: send a 404
@@ -278,12 +283,14 @@ class StargateWebServer(SimpleHTTPRequestHandler):
             elif self.path == '/do/lamp_on':
                 color = data.get('color')
                 brightness = data.get('brightness')
-                self.stargate.set_lamp_mode(True, color=color, brightness=brightness)
+                animation = data.get('animation')
+                self.stargate.set_lamp_mode(True, color=color, brightness=brightness, animation=animation)
                 data = {
                     "success": True,
                     "lamp_mode": True,
                     "color": list(self.stargate.lamp_color),
-                    "brightness": self.stargate.lamp_brightness
+                    "brightness": self.stargate.lamp_brightness,
+                    "lamp_animation": self.stargate.lamp_animation,
                 }
 
             elif self.path == '/do/lamp_off':
@@ -296,11 +303,13 @@ class StargateWebServer(SimpleHTTPRequestHandler):
                 else:
                     color = data.get('color')
                     brightness = data.get('brightness')
-                    self.stargate.lamp_set(color=color, brightness=brightness)
+                    animation = data.get('animation')
+                    self.stargate.lamp_set(color=color, brightness=brightness, animation=animation)
                     data = {
                         "success": True,
                         "color": list(self.stargate.lamp_color),
-                        "brightness": self.stargate.lamp_brightness
+                        "brightness": self.stargate.lamp_brightness,
+                        "lamp_animation": self.stargate.lamp_animation,
                     }
 
             elif self.path == "/do/dhd_test_enable":

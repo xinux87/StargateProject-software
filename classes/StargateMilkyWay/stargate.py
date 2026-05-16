@@ -1,4 +1,4 @@
-from threading import Thread
+from threading import Thread, Event
 from time import time, sleep
 from random import randrange
 
@@ -54,10 +54,13 @@ class Stargate:
         self.silence_store.load()
         self.silence_mode = self.silence_store.get('silence_mode')
 
-        # Lamp mode state (LED strip used as a plain RGB light)
+        # Lamp mode state (LED strip used as a plain RGB light or animated)
         self.lamp_mode = False
         self.lamp_color = (255, 255, 255)  # RGB
         self.lamp_brightness = 255         # 0-255
+        self.lamp_animation = 'static'     # animation id
+        self.lamp_animation_active = False
+        self._lamp_animation_thread = None
 
         ### Set up the needed classes and make them ready to use ###
         self.symbol_manager = StargateSymbolManager(self.galaxy_path)
@@ -105,6 +108,7 @@ class Stargate:
                 len(self.address_buffer_incoming) > 0 or
                 self.wormhole_active
             ):
+                self._stop_lamp_animation()
                 self.lamp_mode = False
                 self.wh_manager.animation_manager.clear_wormhole()
                 self.log.log('Lamp mode: auto-OFF (Stargate activity detected)')
@@ -343,33 +347,59 @@ class Stargate:
         self.silence_store.save()
         self.log.log(f'Silence mode: {"ON" if value else "OFF"}')
 
-    def set_lamp_mode(self, state: bool, color=None, brightness=None):
+    LAMP_ANIMATIONS = [
+        {"id": "static",     "name": "Static Color"},
+        {"id": "wormhole",   "name": "Wormhole Effect"},
+        {"id": "black_hole", "name": "Black Hole"},
+        {"id": "kawoosh",    "name": "Kawoosh Loop"},
+    ]
+    LAMP_ANIMATION_IDS = {a["id"] for a in LAMP_ANIMATIONS}
+
+    def set_lamp_mode(self, state: bool, color=None, brightness=None, animation=None):
         if state:
             # Stop any active wormhole or dialing sequence cleanly
             if self.wormhole_active:
                 self.wormhole_active = False
                 sleep(0.3)
+            self._stop_lamp_animation()
             self.shutdown(cancel_sound=False, wormhole_fail_sound=False)
 
             if color is not None:
                 self.lamp_color = tuple(int(c) for c in color)
             if brightness is not None:
                 self.lamp_brightness = max(0, min(255, int(brightness)))
+            if animation is not None and animation in self.LAMP_ANIMATION_IDS:
+                self.lamp_animation = animation
 
             self.lamp_mode = True
-            self._apply_lamp()
+            if self.lamp_animation == 'static':
+                self._apply_lamp()
+            else:
+                self._start_lamp_animation()
         else:
+            self._stop_lamp_animation()
             self.lamp_mode = False
             self.wh_manager.animation_manager.clear_wormhole()
             self.log.log('Lamp mode: OFF')
 
-    def lamp_set(self, color=None, brightness=None):
+    def lamp_set(self, color=None, brightness=None, animation=None):
         if color is not None:
             self.lamp_color = tuple(int(c) for c in color)
         if brightness is not None:
             self.lamp_brightness = max(0, min(255, int(brightness)))
-        if self.lamp_mode:
-            self._apply_lamp()
+
+        animation_changed = animation is not None and animation in self.LAMP_ANIMATION_IDS and animation != self.lamp_animation
+        if animation_changed:
+            self.lamp_animation = animation
+            if self.lamp_mode:
+                self._stop_lamp_animation()
+                if self.lamp_animation == 'static':
+                    self._apply_lamp()
+                else:
+                    self._start_lamp_animation()
+        elif self.lamp_mode:
+            if self.lamp_animation == 'static':
+                self._apply_lamp()
 
     def _apply_lamp(self):
         pixels = self.wh_manager.animation_manager.pixels
@@ -379,4 +409,33 @@ class Stargate:
         color = (int(r * scale), int(g * scale), int(b * scale))
         pattern = [color] * tot_leds
         self.wh_manager.animation_manager.set_wormhole_pattern(pattern)
-        self.log.log(f'Lamp mode: ON — color={self.lamp_color}, brightness={self.lamp_brightness}')
+        self.log.log(f'Lamp mode: ON — color={self.lamp_color}, brightness={self.lamp_brightness}, animation={self.lamp_animation}')
+
+    def _start_lamp_animation(self):
+        self.lamp_animation_active = True
+        t = Thread(target=self._run_lamp_animation, daemon=True)
+        self._lamp_animation_thread = t
+        t.start()
+
+    def _stop_lamp_animation(self):
+        self.lamp_animation_active = False
+        t = self._lamp_animation_thread
+        if t is not None and t.is_alive():
+            t.join(timeout=3)
+        self._lamp_animation_thread = None
+
+    def _run_lamp_animation(self):
+        mgr = self.wh_manager.animation_manager
+        anim = self.lamp_animation
+        self.log.log(f'Lamp animation thread started: {anim}')
+        while self.lamp_animation_active and self.lamp_mode:
+            if anim == 'wormhole':
+                mgr.do_random_transitions(is_black_hole=False)
+            elif anim == 'black_hole':
+                mgr.do_random_transitions(is_black_hole=True)
+            elif anim == 'kawoosh':
+                mgr.animate_kawoosh()
+                sleep(1.0)
+            else:
+                break
+        self.log.log(f'Lamp animation thread stopped: {anim}')
