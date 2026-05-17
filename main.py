@@ -32,6 +32,9 @@ if GALAXY == "Milky Way":
 from stargate import Stargate
 from electronics import Electronics
 from network_tools import NetworkTools
+from wifi_manager import WiFiManager
+from bluetooth_command_handler import BluetoothCommandHandler
+from bluetooth_server import StargateBluetoothServer
 
 class GateApplication:
 
@@ -120,6 +123,24 @@ class GateApplication:
             self.log.log("Failed to start webserver. Is the port in use?")
             raise
 
+        ### Start the Bluetooth BLE server
+        try:
+            bt_enabled = self.cfg.get("bluetooth_enabled") if (self.cfg.config and "bluetooth_enabled" in self.cfg.config) else True
+            if bt_enabled:
+                self.wifi_manager = WiFiManager(self.log)
+                self.bt_handler = BluetoothCommandHandler(self.stargate, self.wifi_manager, self.log)
+                bt_name = self.cfg.get("bluetooth_device_name") if (self.cfg.config and "bluetooth_device_name" in self.cfg.config) else "Stargate"
+                bt_pin = self.cfg.get("bluetooth_pin") if (self.cfg.config and "bluetooth_pin" in self.cfg.config) else "1969"
+                self.bt_server = StargateBluetoothServer(self.stargate, self.bt_handler, self.log, device_name=bt_name, pin=bt_pin)
+                self.bt_server.start()
+                self.log.log('Bluetooth BLE server started')
+            else:
+                self.bt_server = None
+                self.log.log('Bluetooth BLE server disabled by config')
+        except Exception as e:
+            self.log.log(f'Failed to start Bluetooth server: {e}')
+            self.bt_server = None
+
         ### Register atexit handler
         atexit.register(self.cleanup) # Ensure we handle cleanup before quitting, even on exception
 
@@ -130,6 +151,9 @@ class GateApplication:
         self.stargate.ring.release()      # Release the ring when exiting. Just in case.
         self.httpd_server.shutdown()
         #self.log_tail_server.terminate()
+
+        if hasattr(self, 'bt_server') and self.bt_server is not None:
+            self.bt_server.stop()
 
         self.log.log('The Stargate program is no longer running\r\n\r\n')
         sys.exit(0)

@@ -51,7 +51,7 @@ git -C ~/sg1_v4 pull origin sg1_without_internet
 sudo systemctl restart stargate.service
 
 # Or from your dev machine via rsync:
-rsync -av --exclude='.git' --exclude='soundfx' ./ sg1@<pi-ip>:/home/sg1/sg1_v4/
+rsync -av --exclude='.git' --exclude='soundfx' --exclude='__pycache__' --exclude='*.pyc' --exclude='logs' --exclude='config' ./ sg1@<pi-ip>:/home/sg1/sg1_v4/
 ssh sg1@<pi-ip> "sudo systemctl restart stargate.service"
 ```
 
@@ -107,6 +107,9 @@ GateApplication (main.py)
 ├── StargateAudio           — Audio playback via aplay subprocess (audio_player.py)
 ├── NetworkTools            — Local IP/connectivity utilities (no internet checks)
 ├── StargateWebServer       — HTTP server (extends SimpleHTTPRequestHandler)
+├── WiFiManager             — nmcli wrapper: scan/connect/disconnect/status/hostname
+├── BluetoothCommandHandler — BLE command bridge (30+ commands → Stargate/WiFi calls)
+├── StargateBluetoothServer — BLE GATT server (bless, daemon thread, chunked notify)
 └── Stargate (main controller)
       ├── StargateSymbolManager   — 39-symbol constellation database
       ├── SymbolRing              — Stepper motor ring positioning
@@ -152,6 +155,50 @@ The `Chevron` class detects whether its motor is a servo by inspecting `str(type
 **On startup**, every servo chevron calls `move_up_servo()` to home itself. This plays an audio clip via `sound_start('chevron_2')`.
 
 **Known gap:** `SERVOMotor` in `electronics_servo_helpers.py` is a stub (unused). `Electronics_Servo` uses `continuous_servo` objects from `ServoKit` directly.
+
+### Bluetooth BLE Server
+
+Relevant files: `classes/bluetooth_server.py`, `classes/bluetooth_command_handler.py`, `classes/wifi_manager.py`.
+
+**GATT layout:**
+
+| UUID suffix | Name | Properties | Purpose |
+|---|---|---|---|
+| `...7890` | Service | — | GATT service root |
+| `...7891` | CMD | write + write_no_resp | Client sends JSON commands |
+| `...7892` | RESPONSE | notify | Gate replies per command |
+| `...7893` | STATUS | notify + read | Gate pushes state every 2 s |
+
+**Chunking:** All outgoing notifications are split into 180-byte chunks. Byte 0 = chunk index (0–254); byte 0 = 255 signals the final chunk. The Flutter app reassembles in `_handleChunk()`.
+
+**Auth:** Every connection starts unauthenticated. Only `auth` is accepted before PIN verification. All other commands return `{"status": "unauthorized"}`. Per-connection state; resets on disconnect.
+
+**Command flow:** `_handle_write()` (bless callback, event-loop thread) → `asyncio.run_coroutine_threadsafe(_process_command)` → `command_handler.handle(cmd, params)` (synchronous) → `_send_response()` (notify on RESPONSE_UUID).
+
+**WiFi manager:** All `wifi_manager.*` calls return `{'status': 'ok'/'error', 'data': ...}`. `BluetoothCommandHandler` unwraps these — raises `Exception` on error, returns flat `data` dict on success — so `handle()` applies its standard `{'status':'ok','data':...}` envelope uniformly.
+
+**Config keys** (in `milkyway-config.json`):
+- `bluetooth_enabled` (bool, default `true`) — set `false` to disable BLE entirely
+- `bluetooth_device_name` (str, default `"Stargate"`) — BLE advertised name
+- `bluetooth_pin` (str, default `"1969"`) — connection PIN
+
+**Pi Zero 2W startup requirements:**
+1. BlueZ must run with `--experimental` flag (drop-in override in `/etc/systemd/system/bluetooth.service.d/experimental.conf`)
+2. `rfkill unblock bluetooth` before advertising (adapter is rfkill-blocked at boot by default)
+3. `AutoEnable=true` in `/etc/bluetooth/main.conf` keeps adapter on across reboots
+
+### Mobile App (Flutter)
+
+Source in `mobile_app/`. Full documentation: `mobile_app/README.md`.
+
+**Build environment (WSL):** Flutter 3.32.1, Android SDK at `~/android-sdk/`, NDK 27.0.12077973, Java 17.
+
+**Key architectural decisions:**
+- `BleService` (singleton) owns the raw BLE connection and chunk reassembly. Each command gets a UUID v4 `id`; a `Completer<Map>` keyed on that id waits up to 10 s for the matching RESPONSE notification.
+- `StargateService` is a typed wrapper over `BleService.sendCommand()` with no BLE logic.
+- STATUS notifications feed a `StreamController<StargateState>` broadcast stream; all screens subscribe via `ref.watch(stargateStateProvider)`.
+- Lamp color picker uses `_lastInteraction` timestamp to suppress STATUS-driven sync for 5 s after any user touch, preventing the color wheel from being reset by the polling loop.
+- SVG glyph assets at `assets/symbols/001.svg`–`039.svg` are copied from `web/chevrons/milkyway/`.
 
 ### Audio System
 
@@ -236,6 +283,7 @@ set_lamp_mode(False)  OR  auto-off on Stargate activity:
 - Daemon thread: HTTP web server (port 8080)
 - Daemon threads: keyboard input listeners
 - Daemon thread: lamp animation loop (when a non-static animation is active)
+- Daemon thread: BLE GATT server (owns its own asyncio event loop)
 - Scheduled tasks via `schedule` library
 
 ### Web API
@@ -288,3 +336,7 @@ Pi: `sudo systemctl restart stargate.service`
 - Chevrons 8 and 9 use `DCMotorSim()` — not physically wired.
 - `configure_audio` in `install/functions.sh` hardcodes ALSA card `1`; the app corrects this at runtime via `set_correct_audio_output_device()`.
 - Lamp animation thread uses `t.join(timeout=3)` on stop — if a `do_random_transitions` cycle takes longer (e.g. slow fade on many LEDs), the thread may outlive the join.
+- BLE `StargateBluetoothServer` uses a single `_authenticated` boolean — if multiple clients connect simultaneously, auth state is shared. In practice only one BLE central connects at a time.
+- `bless` does not expose a disconnect callback on Linux; `on_client_disconnect()` exists but is never called automatically. Auth is cleared on `stop()` only.
+- Flutter `flutter_blue_plus` v1.x (used) is pinned below v2.x due to API changes; migration to v2 would require updating `BleService`.
+- `rfkill unblock bluetooth` must be run at each boot on Pi Zero 2W if not added to `/etc/rc.local` or a systemd service.

@@ -1,3 +1,66 @@
+## New in version 4.1.0 (sg1_without_internet branch)
+
+### Bluetooth BLE Mobile App
+
+Full Android and iOS mobile application built with Flutter for wireless control of the Stargate over Bluetooth Low Energy. No WiFi, no internet, no pairing hassle — the phone connects directly to the Pi's BT radio.
+
+**Pi-side changes:**
+
+- `classes/bluetooth_server.py` — New `StargateBluetoothServer` class. Runs a GATT server in a background daemon thread using the `bless` library. Exposes three GATT characteristics on service UUID `a1b2c3d4-e5f6-7890-abcd-ef1234567890`:
+  - CMD (write) — receives JSON commands from the app
+  - RESPONSE (notify) — sends per-command replies
+  - STATUS (notify + read) — pushes gate state every 2 seconds
+  - Large payloads are chunked in 180-byte packets with a 1-byte sequence prefix.
+- `classes/bluetooth_command_handler.py` — New `BluetoothCommandHandler` bridge. Maps 30+ BLE command strings to Stargate/WiFi manager calls. Mirrors `web_server.py` API patterns exactly.
+- `classes/wifi_manager.py` — New `WiFiManager` class. Wraps `nmcli` for WiFi scan, connect, disconnect, status, saved networks, forget, hostname get/set.
+- `main.py` — Initialises `WiFiManager`, `BluetoothCommandHandler`, and `StargateBluetoothServer` after the HTTP server. BT startup is non-fatal (logged as warning if adapter missing).
+- `requirements.txt` — Added `bless>=0.2.0` and `bleak>=0.21.0`.
+
+**Authentication:** Every new BLE connection is unauthenticated. The `auth` command with the configured PIN (default `1969`) must succeed before other commands are accepted. PIN is configurable via `bluetooth_pin` in `milkyway-config.json`.
+
+**Flutter app (`mobile_app/`):**
+
+- Screens: Scan, Auth, Home, Control (DHD), Lights (lamp mode), WiFi, Tests
+- State: `flutter_riverpod` providers, `go_router` navigation
+- BLE: `flutter_blue_plus`, custom chunking reassembly, 10-second command timeout using `Completer`
+- DHD control: all 39 Milky Way symbols displayed as SVG glyphs (`flutter_svg`) sourced from `web/chevrons/milkyway/`
+- Lamp mode: `flex_color_picker` HSV wheel with anti-jitter guard (skips STATUS sync for 5 s after user interaction)
+- WiFi: scan, connect, disconnect, status, saved networks, forget, rename hostname
+- Tests: cycle chevrons (7), ring forward/backward/zero, all LEDs, audio test
+
+**Pi Zero 2W BLE requirements:**
+
+- BlueZ `--experimental` flag required for GATT service registration
+- `rfkill unblock bluetooth` required at boot (adapter is blocked by default on Pi Zero 2W)
+- `AutoEnable=true` in `/etc/bluetooth/main.conf` keeps the adapter powered after reboot
+
+### Audio system fix
+
+- `bluetooth_command_handler.py` `_test_audio` now plays `wormhole_open` (previously referenced non-existent `dhd_center` clip).
+
+### Offline-only branch hardening
+
+- Audio playback replaced `simpleaudio` (segfaults on Python 3.13/aarch64) with `audio_player.py` wrapping `aplay` subprocess.
+- All internet-dependent modules removed: `SoftwareUpdateV2`, `SubspaceClient`, `SubspaceServer`, WireGuard utilities, Rollbar.
+- Adafruit library pins removed to allow pip to resolve compatible versions under Python 3.13.
+- `lgpio` added as dependency so `gpiozero` uses it instead of `RPi.GPIO` on newer kernels.
+- `evdev` replaces `keyboard` library for DHD serial input (no root-only `/dev/input` limitations).
+
+### Servo chevron variant
+
+- New hardware mode: 9 chevrons driven by continuous-rotation servos via PCA9685 PWM board (I2C 0x40) + Adafruit Motor HAT (I2C 0x60) for ring stepper.
+- Auto-detected by I2C signature at startup (`Electronics_Servo` driver).
+- Chevron LEDs on GPIO 6, 12, 13, 16, 19, 20, 21 via `gpiozero` + `lgpio`.
+- Full hardware BOM, wiring diagram, and setup guide: `Stargate Readme Hardware PCA9685PW +Adafruit Servo Hat.md`.
+
+### Home Assistant lamp mode integration
+
+- New HA entities: `light` (RGB + brightness), `select` (animation), updated coordinator polling.
+- Available animations: Static Color, Wormhole Effect, Black Hole, Kawoosh Loop.
+- Lamp mode and Stargate mode are mutually exclusive; gate activity auto-disables lamp.
+
+---
+
 ## New in version 4.0.0
 This version is a major upgrade from the v3.x branch. Completely refactored and with a lot of exciting new functionality and opportunities to extend the existing functionality!
 

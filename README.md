@@ -37,6 +37,83 @@ The documentation can be found in the repo, or at one of the below links
 - v1.0.0 (Current): https://app.swaggerhub.com/apis-docs/TheStargateProject/StargateWebAPI/1.0.0#/
 - v1.1.0 (In development): https://app.swaggerhub.com/apis-docs/TheStargateProject/StargateWebAPI/1.1.0
 
+## Mobile App (Android & iOS)
+
+A native Flutter application provides full **Bluetooth Low Energy (BLE)** control of the Stargate — no WiFi or internet connection required on the phone.
+
+> Full documentation, build instructions, and BLE protocol reference: [mobile_app/README.md](mobile_app/README.md)
+
+### Features
+
+- Scan for and connect to the Stargate via BLE (PIN-protected)
+- Full DHD dialing: press symbols, lock chevrons, open/close wormhole
+- Simulate incoming wormhole
+- Lamp mode: RGB color picker, brightness, animated effects
+- WiFi management: scan, connect, disconnect, rename hostname
+- Hardware tests: chevrons, ring, LEDs, audio
+- Live gate status pushed every 2 seconds
+
+### Quick Start
+
+**On the Raspberry Pi (one-time setup):**
+
+```bash
+# Install BLE server library
+sudo /home/sg1/venv_v4/bin/pip install bless
+
+# Enable BlueZ experimental features (required for GATT advertising)
+sudo mkdir -p /etc/systemd/system/bluetooth.service.d
+sudo tee /etc/systemd/system/bluetooth.service.d/experimental.conf > /dev/null <<'EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/libexec/bluetooth/bluetoothd --experimental
+EOF
+sudo systemctl daemon-reload && sudo systemctl restart bluetooth
+
+# On Pi Zero 2W — unblock the BT radio
+sudo rfkill unblock bluetooth
+
+# Restart the gate software
+sudo systemctl restart stargate.service
+```
+
+**Build the Android APK (from WSL/Linux):**
+
+```bash
+cd mobile_app
+export ANDROID_SDK_ROOT=~/android-sdk
+export PATH=$PATH:~/flutter/bin:~/android-sdk/cmdline-tools/latest/bin
+flutter pub get
+flutter build apk --release
+# APK → mobile_app/build/app/outputs/flutter-apk/app-release.apk
+```
+
+**iOS:** Open `mobile_app/ios/Runner.xcworkspace` in Xcode, set your signing team, and run on device.
+
+### BLE Configuration
+
+In `config/milkyway-config.json`:
+
+```json
+{
+  "bluetooth_enabled": true,
+  "bluetooth_device_name": "Stargate",
+  "bluetooth_pin": "1969"
+}
+```
+
+### Architecture
+
+The BLE server (`classes/bluetooth_server.py`) runs as a daemon thread alongside the HTTP server. It exposes a single GATT service with three characteristics:
+
+| Characteristic | Direction | Purpose |
+|---|---|---|
+| CMD | Client → Gate | Send JSON commands |
+| RESPONSE | Gate → Client | Per-command reply (notify) |
+| STATUS | Gate → Client | State push every 2 s (notify + read) |
+
+Large payloads are automatically split into 180-byte chunks with a 1-byte sequence prefix. The Flutter app reassembles them transparently.
+
 ## Hardware Variants
 
 The software automatically detects the connected hardware via I2C at startup and loads the appropriate driver.

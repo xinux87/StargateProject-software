@@ -29,3 +29,5 @@ python-dateutil>=2.8.2
 ipaddress>=1.0.23
 evdev>=1.6.0
 lgpio>=0.2.0
+bless>=0.2.0
+bleak>=0.21.0
