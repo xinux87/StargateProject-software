@@ -177,6 +177,23 @@ Relevant files: `classes/bluetooth_server.py`, `classes/bluetooth_command_handle
 
 **WiFi manager:** All `wifi_manager.*` calls return `{'status': 'ok'/'error', 'data': ...}`. `BluetoothCommandHandler` unwraps these — raises `Exception` on error, returns flat `data` dict on success — so `handle()` applies its standard `{'status':'ok','data':...}` envelope uniformly.
 
+**Planet dialing command (`dial_planet`):**
+
+| Field | Value |
+|---|---|
+| Command | `dial_planet` |
+| Params | `{"address": [s1, s2, s3, s4, s5, s6]}` (6-symbol gate address) |
+| Response | `{"status": "ok", "data": {"address": [...]}}` |
+
+The handler (`_dial_planet`) performs the complete dialing sequence on the Pi:
+1. Turns off lamp mode if active.
+2. Aborts any in-progress dial or open wormhole via `shutdown()`.
+3. Queues the 6 address symbols via `keyboard.queue_symbol()`.
+4. Appends symbol 1 (point-of-origin / home glyph) — required because `valid_planet()` strips the last symbol from the buffer before matching the 6-symbol address book. `queue_symbol()` silently skips duplicates, so this is safe even if the address already contains symbol 1.
+5. Calls `keyboard.queue_center_button()` to trigger wormhole establishment once all 7 chevrons are locked.
+
+The main loop's `outgoing_dialing()` processes the queue at its own pace (one symbol per iteration, blocked on the ring motor move). The app does **not** need to manage symbol timing — it sends one command and watches `locked_chevrons` in STATUS notifications to track progress.
+
 **Config keys** (in `milkyway-config.json`):
 - `bluetooth_enabled` (bool, default `true`) — set `false` to disable BLE entirely
 - `bluetooth_device_name` (str, default `"Stargate"`) — BLE advertised name
@@ -199,6 +216,7 @@ Source in `mobile_app/`. Full documentation: `mobile_app/README.md`.
 - STATUS notifications feed a `StreamController<StargateState>` broadcast stream; all screens subscribe via `ref.watch(stargateStateProvider)`.
 - Lamp color picker uses `_lastInteraction` timestamp to suppress STATUS-driven sync for 5 s after any user touch, preventing the color wheel from being reset by the polling loop.
 - SVG glyph assets at `assets/symbols/001.svg`–`039.svg` are copied from `web/chevrons/milkyway/`.
+- **Planet dialing is server-side**: the app sends a single `dial_planet` command with the 6-symbol address; the Pi gate queues all symbols + point-of-origin + centre button internally. The app never sequences timing. Progress is visible via STATUS `locked_chevrons`.
 
 ### Audio System
 

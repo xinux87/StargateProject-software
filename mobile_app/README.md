@@ -124,7 +124,8 @@ The app saves the PIN in `SharedPreferences` and retries silently on reconnect.
 | `auth` | `{pin}` | Authenticate this connection |
 | `get_status` | — | Current gate state |
 | `get_system_info` | — | IP, gate name, Python version |
-| `dhd_press` | `{symbol: 1–39}` | Press a symbol on the DHD |
+| `dial_planet` | `{address: [s1…s6]}` | **Dial a planet in one command** — the gate queues all 7 symbols (6 address + point-of-origin) and presses centre. Preferred over `dhd_press` for address-book dialing. |
+| `dhd_press` | `{symbol: 1–39}` | Press a single symbol on the DHD (manual/interactive use) |
 | `dhd_press` | `{symbol: 0}` | Press centre button (dial / close wormhole) |
 | `dhd_press` | `{symbol: -1}` | Abort dialing sequence |
 | `clear_buffer` | — | Clear address buffer / cancel dialing |

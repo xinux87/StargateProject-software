@@ -10,23 +10,6 @@ import 'lights_screen.dart';
 import 'wifi_screen.dart';
 import 'test_screen.dart';
 
-// Shared planet-dialing helper used by Home and Control screens
-Future<void> dialPlanet(
-  List<int> address,
-  dynamic service,
-  BuildContext context,
-) async {
-  for (final symbol in address) {
-    await service.dhdPress(symbol);
-    await Future.delayed(const Duration(milliseconds: 600));
-  }
-  await service.dhdPress(0); // centre button
-  if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Dialing sequence sent')),
-    );
-  }
-}
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -555,7 +538,12 @@ class _PlanetCard extends ConsumerWidget {
                           setState(() => dialing = true);
                           try {
                             final service = ref.read(stargateServiceProvider);
-                            await dialPlanet(address, service, context);
+                            await service.dialPlanet(address);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Dialing sequence sent')),
+                              );
+                            }
                           } catch (e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(

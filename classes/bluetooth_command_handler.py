@@ -42,6 +42,7 @@ class BluetoothCommandHandler:
             'get_system_info':   self._get_system_info,
             # DHD / dialing
             'dhd_press':         self._dhd_press,
+            'dial_planet':       self._dial_planet,
             'clear_buffer':      self._clear_buffer,
             'simulate_incoming': self._simulate_incoming,
             # Wormhole
@@ -213,6 +214,38 @@ class BluetoothCommandHandler:
             sg.shutdown(cancel_sound=False, wormhole_fail_sound=False)
 
         return {'symbol': symbol_number}
+
+    def _dial_planet(self, params):
+        """
+        Queue a full dialing sequence for a planet address.
+        The client sends the 6-symbol gate_address; this handler appends the
+        point-of-origin symbol (1) and presses the centre button, so the app
+        never needs to manage timing or sequence logic.
+        """
+        sg = self.stargate
+        raw = params.get('address', [])
+        if not raw:
+            raise Exception('dial_planet: address is required')
+
+        address = [int(s) for s in raw]
+
+        if sg.lamp_mode:
+            sg.set_lamp_mode(False)
+
+        # Abort any active wormhole or partial dial before starting
+        if sg.wormhole_active or len(sg.address_buffer_outgoing) > 0:
+            sg.shutdown(cancel_sound=False, wormhole_fail_sound=False)
+
+        for symbol in address:
+            sg.keyboard.queue_symbol(symbol)
+
+        # Point of origin: symbol 1.  queue_symbol() skips duplicates, so
+        # this is safe even if the address happens to contain symbol 1.
+        sg.keyboard.queue_symbol(1)
+
+        sg.keyboard.queue_center_button()
+
+        return {'address': address}
 
     def _clear_buffer(self, _params):
         sg = self.stargate

@@ -86,6 +86,16 @@ class StargateService {
     await _ble.sendCommand('dhd_press', params: {'symbol': symbol});
   }
 
+  /// Send a complete planet address to the gate in one command.
+  /// The gate handles queuing all symbols, the point-of-origin, and the
+  /// centre button — the app does not need to sequence anything.
+  Future<void> dialPlanet(List<int> address) async {
+    final res = await _ble.sendCommand('dial_planet', params: {'address': address});
+    if (res['status'] != 'ok') {
+      throw Exception(res['message'] ?? res['error'] ?? 'dial_planet failed');
+    }
+  }
+
   Future<void> wormholeOn() async {
     await _ble.sendCommand('wormhole_on', params: {});
   }

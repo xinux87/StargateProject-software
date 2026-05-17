@@ -5,7 +5,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../models/stargate_state.dart';
 import '../providers/connection_provider.dart';
 import '../providers/stargate_provider.dart';
-import 'home_screen.dart' show dialPlanet;
 
 class ControlScreen extends ConsumerStatefulWidget {
   final bool embedded;
@@ -496,12 +495,18 @@ class _PlanetDialTileState extends ConsumerState<_PlanetDialTile> {
                 onPressed: widget.isConnected
                     ? () async {
                         setState(() => _dialing = true);
+                        final messenger = ScaffoldMessenger.of(context);
                         try {
                           final service = ref.read(stargateServiceProvider);
-                          await dialPlanet(widget.address, service, context);
+                          await service.dialPlanet(widget.address);
+                          if (mounted) {
+                            messenger.showSnackBar(
+                              const SnackBar(content: Text('Dialing sequence sent')),
+                            );
+                          }
                         } catch (e) {
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(content: Text('Error: $e')),
                             );
                           }
