@@ -1,5 +1,6 @@
 import os
 from time import sleep
+from threading import Thread
 from serial.serialutil import SerialException
 import StargateCmdMessenger
 
@@ -33,6 +34,25 @@ class Dialer: # pylint: disable=too-few-public-methods
 
         self._connect_dialer()
 
+        # Start background reconnect thread if DHD is in use
+        if self.dhd_enable:
+            t = Thread(target=self._reconnect_loop, daemon=True)
+            t.start()
+
+    def _reconnect_loop(self):
+        """Background thread: detects DHD serial disconnection and reconnects automatically."""
+        RETRY_INTERVAL = 10  # seconds between reconnect attempts
+        while True:
+            sleep(RETRY_INTERVAL)
+            if self.type == "DHDv2" and not self.hardware.board.connected:
+                self.log.log('DHD: Serial connection lost. Attempting reconnect...')
+                try:
+                    self.hardware = self._connect_dhd()
+                    self.type = "DHDv2"
+                    self.log.log('DHD: Reconnected successfully.')
+                except (SerialException, Exception):  # pylint: disable=broad-except
+                    self.log.log('DHD: Reconnect failed. Will retry in 10s.')
+
     def _connect_dialer(self):
         # Detect if we have a DHD connected, else use the keyboard
         try:
@@ -48,11 +68,13 @@ class Dialer: # pylint: disable=too-few-public-methods
             self.type = "Keyboard"
 
     def _connect_dhd(self):
+        # Use configured port if it exists, otherwise auto-detect
+        port = self.dhd_port if (self.dhd_port and os.path.exists(self.dhd_port)) else DHDv2.get_dhd_port()
+        if port is None:
+            raise SerialException("No DHD serial device found")
+        self.log.log(f'Attempting DHD connection on {port}')
         try:
-            # Get a Semaphore lock on the parent process so when the PyCmdMessenger class
-            # prints to STDOUT, it doesn't step on STDOUT from other threads
-            ### Connect to the DHD object. Will throw exception if not present
-            dhd = DHDv2(self.dhd_port, self.dhd_serial_baud_rate, self.log)
+            dhd = DHDv2(port, self.dhd_serial_baud_rate, self.log)
             self.log.log('DHDv2 Found. Connected.')
         except SerialException: # pylint: disable=try-except-raise
             raise
@@ -161,6 +183,8 @@ class DHDv2:
                                           10: 10, 11: 23, 12: 25, 14: 4, 15: 15, 16: 12, 17: 3, 18: 5, 19: 33,
                                           20: 38, 21: 22, 22: 32, 23: 6, 24: 30, 25: 1, 26: 7, 27: 17, 28: 11, 29: 28,
                                           30: 13, 31: 16, 32: 35, 33: 9, 34: 26, 35: 14, 36: 19, 37: 24, 38: 27, 39: 8}
+        if pixel_index not in symbol_number_to_dhd_light_map:
+            return False  # symbol not present on physical DHD (e.g. symbol 13 / Aquila)
         self.c.send("set_pixel", symbol_number_to_dhd_light_map[pixel_index], red, green, blue)
         return True
 
@@ -177,20 +201,32 @@ class DHDv2:
         return True
 
     def latch(self):
-        self.c.send("latch")
+        try:
+            self.c.send("latch")
+        except (Exception):  # pylint: disable=broad-except
+            pass
         return True
 
     def clear_lights(self):
-        self.set_all_pixels_to_color(0, 0, 0) # All Off
-        self.latch()
+        try:
+            self.set_all_pixels_to_color(0, 0, 0)
+            self.latch()
+        except (Exception):  # pylint: disable=broad-except
+            pass
 
     def set_center_on( self ):
-        self.set_pixel(0, self.color_center[0], self.color_center[1], self.color_center[2]) # LED 0, Pure red.
-        self.latch()
+        try:
+            self.set_pixel(0, self.color_center[0], self.color_center[1], self.color_center[2])
+            self.latch()
+        except (Exception):  # pylint: disable=broad-except
+            pass
 
     def set_symbol_on( self, symbol_number ):
-        self.set_pixel(symbol_number, self.color_symbols[0], self.color_symbols[1], self.color_symbols[2])
-        self.latch()
+        try:
+            self.set_pixel(symbol_number, self.color_symbols[0], self.color_symbols[1], self.color_symbols[2])
+            self.latch()
+        except (Exception):  # pylint: disable=broad-except
+            pass
 
     def set_color_center(self, color_tuple):
         self.color_center = color_tuple
@@ -204,8 +240,12 @@ class DHDv2:
         This is a simple helper function to help locate the port for the DHD
         :return: The file path for the DHD is returned. If it is not found, returns None.
         """
-        # A list for places to check for the DHD
-        possible_files = ["/dev/serial/by-id/usb-Adafruit_ItsyBitsy_32u4_5V_16MHz_HIDPC-if00", "/dev/ttyACM0", "/dev/ttyACM1"]
+        # Use only stable by-id symlinks — avoids accidentally hitting the bootloader
+        # (which gets ttyACM0/ACM1 but a different by-id name)
+        possible_files = [
+            "/dev/serial/by-id/usb-Adafruit_ItsyBitsy_32u4_5V_16MHz_HIDPC-if00",
+            "/dev/serial/by-id/usb-SparkFun_SparkFun_Pro_Micro_HIDPC-if00",
+        ]
 
         # Run through the list and check if the file exists.
         for file in possible_files:

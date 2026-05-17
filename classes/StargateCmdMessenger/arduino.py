@@ -195,7 +195,13 @@ class ArduinoBoard:
         Wrap serial write method.
         """
 
-        self.comm.write(msg)
+        try:
+            self.comm.write(msg)
+        except (serial.SerialException, OSError) as ex:
+            self._is_connected = False
+            if self.log:
+                self.log.log(f'DHD serial write failed: {ex}')
+            raise
 
     def close(self):
         """

@@ -69,34 +69,125 @@ class KeyboardManager:
 
     def thread_keyboard_direct(self, stargate):
         """
-        This function takes the stargate as input and listens for user input (from the DHD or keyboard).
-        This function is run in parallel in its own thread.
-        :return: Nothing is returned, but the stargate is manipulated.
+        Lee input del teclado físico o DHD (HID) via evdev / /dev/input.
+        Soporta hotplug: detecta conexión/desconexión sin reiniciar el servicio.
         """
+        try:
+            # pylint: disable-next=import-outside-toplevel
+            import evdev
+            from evdev import ecodes  # pylint: disable=import-outside-toplevel
+            import selectors  # pylint: disable=import-outside-toplevel
 
-        stargate.log.log("Initializing Keyboard listeners")
+            keycode_map = self._build_evdev_keycode_map()
 
+            sel = selectors.DefaultSelector()
+            registered_paths = set()  # paths de /dev/input actualmente en el selector
+
+            def _register_keyboards():
+                added = 0
+                for path in evdev.list_devices():
+                    if path in registered_paths:
+                        continue
+                    try:
+                        dev = evdev.InputDevice(path)
+                        caps = dev.capabilities()
+                        key_codes = set(caps.get(ecodes.EV_KEY, []))
+                        if ecodes.KEY_A in key_codes and ecodes.KEY_1 in key_codes:
+                            sel.register(dev, selectors.EVENT_READ)
+                            registered_paths.add(path)
+                            stargate.log.log(f'KEYBOARD: Dispositivo conectado: {dev.name} ({path})')
+                            added += 1
+                        else:
+                            dev.close()
+                    except OSError:
+                        pass
+                return added
+
+            # Escaneo inicial
+            if _register_keyboards() == 0:
+                stargate.log.log('KEYBOARD: No se encontró ningún dispositivo teclado al arrancar. Esperando hotplug...')
+
+            stargate.log.log("Listening for input from the DHD/Keyboard via direct input. You can abort with the '-' key.")
+
+            left_shift = False
+            right_shift = False
+            scan_counter = 0
+            RESCAN_EVERY = 5  # iteraciones (≈ 5 s con timeout=1.0)
+
+            while stargate.running:
+                # Re-scan periódico para detectar nuevos dispositivos (hotplug)
+                if scan_counter >= RESCAN_EVERY:
+                    _register_keyboards()
+                    scan_counter = 0
+                scan_counter += 1
+
+                for key, _ in sel.select(timeout=1.0):
+                    dev = key.fileobj
+                    try:
+                        for event in dev.read():
+                            if event.type != ecodes.EV_KEY:
+                                continue
+                            # Rastrear shift
+                            if event.code == ecodes.KEY_LEFTSHIFT:
+                                left_shift = (event.value != 0)
+                                continue
+                            if event.code == ecodes.KEY_RIGHTSHIFT:
+                                right_shift = (event.value != 0)
+                                continue
+                            # Solo key_down (value=1), ignorar key_up(0) y key_hold(2)
+                            if event.value != 1:
+                                continue
+                            char = keycode_map.get((event.code, left_shift or right_shift))
+                            if char is not None:
+                                self.keypress_handler(char)
+                    except OSError:
+                        stargate.log.log(f'KEYBOARD: Dispositivo desconectado: {dev.name} ({dev.path})')
+                        registered_paths.discard(dev.path)
+                        sel.unregister(dev)
+                        try:
+                            dev.close()
+                        except OSError:
+                            pass
+
+            sel.close()
+
+        except Exception as ex:  # pylint: disable=broad-except
+            stargate.log.log(f'KEYBOARD ERROR: evdev thread falló: {ex}')
+            stargate.log.log('El input del teclado NO funcionará. Verificar que evdev esté instalado.')
+
+    @staticmethod
+    def _build_evdev_keycode_map():
+        """
+        Retorna dict: (keycode_int, shift_held: bool) -> char_string
+        Cubre todas las teclas definidas en StargateSymbolManager.
+        """
         # pylint: disable-next=import-outside-toplevel
-        import keyboard # importing this on MacOS causes a seg fault
+        from evdev import ecodes
 
-        for char_in in self.symbol_manager.get_symbol_key_map():
+        result = {}
 
-            if not char_in:
-                continue
+        # Letras: sin shift -> minúscula, con shift -> mayúscula
+        for letter in 'abcdefghijklmnopqrstuvwxyz':
+            code = getattr(ecodes, f'KEY_{letter.upper()}', None)
+            if code is not None:
+                result[(code, False)] = letter
+                result[(code, True)]  = letter.upper()
 
-            # Transform upper case presses
-            char = char_in
-            if char_in != char_in.lower():
-                char = f"shift+{char.lower()}"
+        # Dígitos 0-9 (shift+dígito produce !@#... que no se usa aquí)
+        digit_map = {
+            '1': ecodes.KEY_1, '2': ecodes.KEY_2, '3': ecodes.KEY_3,
+            '4': ecodes.KEY_4, '5': ecodes.KEY_5, '6': ecodes.KEY_6,
+            '7': ecodes.KEY_7, '8': ecodes.KEY_8, '9': ecodes.KEY_9,
+            '0': ecodes.KEY_0,
+        }
+        for char, code in digit_map.items():
+            result[(code, False)] = char
+            result[(code, True)]  = char
 
-            # Add the hotkey
-            keyboard.add_hotkey(char, lambda char_in=char_in: self.keypress_handler(char_in))
+        # Carácter de abort
+        result[(ecodes.KEY_MINUS, False)] = '-'
 
-        # Add one for the center button ("A")
-        keyboard.add_hotkey("shift+a", lambda: self.keypress_handler(self.center_button_key))
-
-        stargate.log.log("Listening for input from the DHD/Keyboard via direct input. You can abort with the '-' key.")
-        keyboard.wait()
+        return result
 
     def enable_dhd_test( self, enable ):
         if enable:
@@ -110,15 +201,17 @@ class KeyboardManager:
 
     def handle_dhd_test(self, key):
         # Handle test mode here
+        symbol_number = None
         try:
             symbol_number = self.symbol_manager.get_symbol_key_map()[key]
             self.log.log(f'DHD Test: Pressed Key {key} --> Symbol {symbol_number}')
         except KeyError:
             if key == self.center_button_key:
-                self.log.log(f'DHD Test: Pressed Center Button {key} --> Symbol {symbol_number}')
                 symbol_number = 0
+                self.log.log(f'DHD Test: Pressed Center Button {key} --> Symbol 0')
             else:
                 self.log.log(f'DHD Test: Key NOT RECOGNIZED {key}')
+                return
 
         if symbol_number not in self.dhd_test_active_buttons:
             self.dhd_test_active_buttons.append(symbol_number)
