@@ -412,34 +412,106 @@ class _DashboardTab extends ConsumerWidget {
 
 // ─── Planet list widget ─────────────────────────────────────────────────────
 
-class _PlanetList extends ConsumerWidget {
+class _PlanetList extends ConsumerStatefulWidget {
   final bool isConnected;
   const _PlanetList({required this.isConnected});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final planetsAsync = ref.watch(planetsProvider);
+  ConsumerState<_PlanetList> createState() => _PlanetListState();
+}
+
+class _PlanetListState extends ConsumerState<_PlanetList> {
+  List<Map<String, dynamic>> _planets = [];
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // Small delay so BLE is fully settled after auth before we send commands
+    Future.delayed(const Duration(milliseconds: 800), _load);
+  }
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() { _loading = true; _error = null; });
+    try {
+      final service = ref.read(stargateServiceProvider);
+      final planets = await service.getAddresses();
+      if (mounted) setState(() { _planets = planets; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return planetsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text('Could not load planets: $e', style: const TextStyle(color: Colors.red, fontSize: 12)),
-      ),
-      data: (planets) {
-        if (planets.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text('No planets in address book', style: theme.textTheme.bodyMedium),
-          );
-        }
-        return Column(
-          children: planets
-              .map((p) => _PlanetCard(planet: p, isConnected: isConnected))
-              .toList(),
-        );
-      },
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                const Icon(Icons.warning_amber, color: Colors.orange, size: 18),
+                const SizedBox(width: 8),
+                Expanded(child: Text(_error!, style: const TextStyle(color: Colors.orange, fontSize: 12))),
+              ]),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('RETRY'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  textStyle: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_planets.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Text('No planets loaded', style: theme.textTheme.bodyMedium),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('LOAD'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        ..._planets.map((p) => _PlanetCard(planet: p, isConnected: widget.isConnected)),
+        const SizedBox(height: 4),
+        TextButton.icon(
+          onPressed: _load,
+          icon: const Icon(Icons.refresh, size: 14),
+          label: const Text('Refresh list', style: TextStyle(fontSize: 12)),
+        ),
+      ],
     );
   }
 }

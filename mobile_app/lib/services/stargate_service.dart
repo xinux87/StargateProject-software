@@ -216,9 +216,17 @@ class StargateService {
 
   Future<List<Map<String, dynamic>>> getAddresses() async {
     final res = await _ble.sendCommand('get_addresses', params: {});
-    if (res['status'] != 'ok') return [];
+    if (res['status'] == 'unknown_command') {
+      throw Exception('Firmware does not support get_addresses — restart the Pi service');
+    }
+    if (res['status'] != 'ok') {
+      throw Exception(res['message'] ?? res['error'] ?? 'get_addresses failed');
+    }
     final data = res['data'] as Map<String, dynamic>? ?? {};
     final planets = data['planets'] as List<dynamic>? ?? [];
+    if (planets.isEmpty) {
+      throw Exception('Address book is empty on the gate');
+    }
     return planets.map((p) {
       final m = p as Map<String, dynamic>;
       return <String, dynamic>{

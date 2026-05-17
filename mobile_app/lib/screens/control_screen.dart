@@ -352,42 +352,99 @@ class _TabButton extends StatelessWidget {
   }
 }
 
-class _PlanetsTab extends ConsumerWidget {
+class _PlanetsTab extends ConsumerStatefulWidget {
   final bool isConnected;
   const _PlanetsTab({required this.isConnected});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final planetsAsync = ref.watch(planetsProvider);
+  ConsumerState<_PlanetsTab> createState() => _PlanetsTabState();
+}
+
+class _PlanetsTabState extends ConsumerState<_PlanetsTab> {
+  List<Map<String, dynamic>> _planets = [];
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 800), _load);
+  }
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() { _loading = true; _error = null; });
+    try {
+      final service = ref.read(stargateServiceProvider);
+      final planets = await service.getAddresses();
+      if (mounted) setState(() { _planets = planets; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return planetsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(
-        child: Text('Could not load planets: $e',
-            style: const TextStyle(color: Colors.red, fontSize: 12)),
-      ),
-      data: (planets) {
-        if (planets.isEmpty) {
-          return Center(
-            child: Text('No planets in address book', style: theme.textTheme.bodyMedium),
+    if (_loading) return const Center(child: CircularProgressIndicator());
+
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.warning_amber, color: Colors.orange, size: 36),
+              const SizedBox(height: 12),
+              Text(_error!, style: const TextStyle(color: Colors.orange, fontSize: 12), textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh),
+                label: const Text('RETRY'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_planets.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('No planets loaded', style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: _load,
+              icon: const Icon(Icons.refresh),
+              label: const Text('LOAD PLANETS'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: _planets.length + 1,
+      itemBuilder: (context, i) {
+        if (i == _planets.length) {
+          return TextButton.icon(
+            onPressed: _load,
+            icon: const Icon(Icons.refresh, size: 14),
+            label: const Text('Refresh', style: TextStyle(fontSize: 12)),
           );
         }
-        return ListView.builder(
-          padding: const EdgeInsets.all(12),
-          itemCount: planets.length,
-          itemBuilder: (context, i) {
-            final p = planets[i];
-            final name = p['name'] as String;
-            final address = p['address'] as List<int>;
-            final type = p['type'] as String;
-            return _PlanetDialTile(
-              name: name,
-              address: address,
-              type: type,
-              isConnected: isConnected,
-            );
-          },
+        final p = _planets[i];
+        return _PlanetDialTile(
+          name: p['name'] as String,
+          address: p['address'] as List<int>,
+          type: p['type'] as String,
+          isConnected: widget.isConnected,
         );
       },
     );
