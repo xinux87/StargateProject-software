@@ -50,3 +50,12 @@ final wifiStatusProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref
   final service = ref.read(stargateServiceProvider);
   return service.getWifiStatus();
 });
+
+// ──────────────────────────────────────────────
+// Address book planets (fetched once per session)
+// ──────────────────────────────────────────────
+
+final planetsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final service = ref.read(stargateServiceProvider);
+  return service.getAddresses();
+});

@@ -61,6 +61,8 @@ class BluetoothCommandHandler:
             'symbol_forward':    self._symbol_forward,
             'symbol_backward':   self._symbol_backward,
             'ring_set_zero':     self._ring_set_zero,
+            # Address book
+            'get_addresses':     self._get_addresses,
             # Test / system
             'test_audio':        self._test_audio,
             'reboot':            self._reboot,
@@ -344,6 +346,21 @@ class BluetoothCommandHandler:
     # ------------------------------------------------------------------
     # Test / system handlers
     # ------------------------------------------------------------------
+
+    def _get_addresses(self, _params):
+        book = self.stargate.addr_manager.get_book()
+        all_gates = book.get_all_nonlocal_addresses()
+        planets = []
+        for name, gate in all_gates.items():
+            if gate.get('is_black_hole'):
+                continue
+            planets.append({
+                'name': name,
+                'address': gate.get('gate_address', []),
+                'type': gate.get('type', 'unknown'),
+            })
+        planets.sort(key=lambda g: g['name'].lower())
+        return {'planets': planets}
 
     def _test_audio(self, _params):
         self.stargate.audio.sound_start('wormhole_open')

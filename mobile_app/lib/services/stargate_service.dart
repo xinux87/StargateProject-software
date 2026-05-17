@@ -209,4 +209,23 @@ class StargateService {
   Future<void> rebootPi() async {
     await _ble.sendCommand('reboot', params: {});
   }
+
+  // ──────────────────────────────────────────────
+  // Address book / planets
+  // ──────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getAddresses() async {
+    final res = await _ble.sendCommand('get_addresses', params: {});
+    if (res['status'] != 'ok') return [];
+    final data = res['data'] as Map<String, dynamic>? ?? {};
+    final planets = data['planets'] as List<dynamic>? ?? [];
+    return planets.map((p) {
+      final m = p as Map<String, dynamic>;
+      return <String, dynamic>{
+        'name': m['name']?.toString() ?? '',
+        'address': (m['address'] as List<dynamic>? ?? []).map((e) => e as int).toList(),
+        'type': m['type']?.toString() ?? 'unknown',
+      };
+    }).toList();
+  }
 }

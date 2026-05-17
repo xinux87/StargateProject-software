@@ -96,81 +96,79 @@ class WiFiManager:
         return {'status': 'ok', 'data': {'message': result.stdout.strip()}}
 
     def get_status(self) -> dict:
+        """Get current WiFi connection status.
+
+        Primary: iwgetid -r (SSID) + ip addr show wlan0 (IP). Simple and always
+        available on Raspberry Pi OS regardless of whether NetworkManager is installed.
+        Fallback: nmcli for systems where iwgetid is missing.
+        """
+        import re
+
+        ssid = ''
+        ip = ''
+        connected = False
+        signal = 0
+
+        # ── Primary path: iwgetid ──────────────────────────────────────────
+        try:
+            ssid_result = self._run(['iwgetid', '-r'])
+            if ssid_result.returncode == 0:
+                ssid = ssid_result.stdout.strip()
+                connected = bool(ssid)
+        except FileNotFoundError:
+            ssid = ''  # iwgetid not found; fall through to nmcli
+
+        if connected:
+            # IP address via `ip addr show wlan0`
+            try:
+                ip_result = self._run(['ip', '-4', 'addr', 'show', 'wlan0'])
+                if ip_result.returncode == 0:
+                    m = re.search(r'inet (\d+\.\d+\.\d+\.\d+)', ip_result.stdout)
+                    if m:
+                        ip = m.group(1)
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                pass
+
+            # Signal via iwconfig
+            try:
+                sig_result = self._run(['iwconfig', 'wlan0'])
+                if sig_result.returncode == 0:
+                    m = re.search(r'Signal level=(-?\d+)', sig_result.stdout)
+                    if m:
+                        dbm = int(m.group(1))
+                        signal = max(0, min(100, 2 * (dbm + 100)))
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                pass
+
+            return {'status': 'ok', 'data': {'connected': connected, 'ssid': ssid, 'ip': ip, 'signal': signal}}
+
+        # ── Fallback: nmcli (NetworkManager-based distros) ─────────────────
         try:
             con_result = self._run(
                 ['nmcli', '-t', '-f', 'NAME,TYPE,STATE,IP4.ADDRESS', 'con', 'show', '--active']
             )
         except FileNotFoundError:
-            return {'status': 'error', 'message': 'nmcli not found'}
+            # Neither iwgetid nor nmcli — best we can do is report unknown
+            return {'status': 'ok', 'data': {'connected': False, 'ssid': '', 'ip': '', 'signal': 0}}
         except subprocess.TimeoutExpired:
             return {'status': 'error', 'message': 'status timed out'}
 
         if con_result.returncode != 0:
-            msg = con_result.stderr.strip()
-            self.log.log(f'WiFiManager.get_status error: {msg}')
-            return {'status': 'error', 'message': msg}
+            self.log.log(f'WiFiManager.get_status nmcli error: {con_result.stderr.strip()}')
+            return {'status': 'ok', 'data': {'connected': False, 'ssid': '', 'ip': '', 'signal': 0}}
 
-        ssid = ''
-        ip = ''
-        connected = False
-
-        # Each active connection may span multiple output lines (one per field).
-        # nmcli -t groups multiline entries; NAME appears first, IP4.ADDRESS may follow.
-        # Collect all lines then associate them by block.
-        lines = con_result.stdout.splitlines()
-        blocks: list[dict[str, str]] = []
-        current: dict[str, str] = {}
-
-        for line in lines:
+        for line in con_result.stdout.splitlines():
             parts = _split_nmcli_line(line, 4)
             if parts is None:
-                # Fallback: try splitting on first colon for IP4.ADDRESS continuation lines
-                if ':' in line:
-                    key, _, val = line.partition(':')
-                    current[key.strip()] = val.strip()
                 continue
-
             name, con_type, state, ip4 = (p.strip() for p in parts)
-
-            if con_type == '802-11-wireless':
-                if current:
-                    blocks.append(current)
-                current = {'NAME': name, 'TYPE': con_type, 'STATE': state, 'IP4.ADDRESS': ip4}
-            elif current and not con_type:
-                # continuation line with IP4.ADDRESS
-                current['IP4.ADDRESS'] = name  # name field holds the value in -t mode
-
-        if current:
-            blocks.append(current)
-
-        for block in blocks:
-            if block.get('TYPE') == '802-11-wireless':
-                connected = block.get('STATE') == 'activated'
-                ssid = block.get('NAME', '')
-                ip_with_prefix = block.get('IP4.ADDRESS', '')
-                # Strip CIDR notation (e.g. 192.168.1.5/24 → 192.168.1.5)
-                ip = ip_with_prefix.split('/')[0] if ip_with_prefix else ''
+            if con_type == '802-11-wireless' and state in ('activated', 'connected'):
+                connected = True
+                ssid = name
+                ip = ip4.split('/')[0] if ip4 else ''
                 break
 
-        signal = 0
-        if connected:
-            try:
-                sig_result = self._run(['nmcli', '-t', '-f', 'SIGNAL', 'dev', 'wifi', 'list'])
-                if sig_result.returncode == 0:
-                    first_line = sig_result.stdout.splitlines()[0] if sig_result.stdout.strip() else ''
-                    signal = int(first_line.strip()) if first_line.strip().isdigit() else 0
-            except (FileNotFoundError, subprocess.TimeoutExpired, IndexError, ValueError):
-                pass
-
-        return {
-            'status': 'ok',
-            'data': {
-                'connected': connected,
-                'ssid': ssid,
-                'ip': ip,
-                'signal': signal,
-            },
-        }
+        return {'status': 'ok', 'data': {'connected': connected, 'ssid': ssid, 'ip': ip, 'signal': signal}}
 
     def get_saved_networks(self) -> dict:
         try:

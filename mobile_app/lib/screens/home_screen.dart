@@ -10,6 +10,24 @@ import 'lights_screen.dart';
 import 'wifi_screen.dart';
 import 'test_screen.dart';
 
+// Shared planet-dialing helper used by Home and Control screens
+Future<void> dialPlanet(
+  List<int> address,
+  dynamic service,
+  BuildContext context,
+) async {
+  for (final symbol in address) {
+    await service.dhdPress(symbol);
+    await Future.delayed(const Duration(milliseconds: 600));
+  }
+  await service.dhdPress(0); // centre button
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Dialing sequence sent')),
+    );
+  }
+}
+
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -200,7 +218,7 @@ class _DashboardTab extends ConsumerWidget {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
-                            value: gateState.lockedChevrons / 9,
+                            value: gateState.lockedChevrons / 7,
                             minHeight: 10,
                             backgroundColor: const Color(0xFF023E8A),
                             valueColor: AlwaysStoppedAnimation<Color>(
@@ -213,7 +231,7 @@ class _DashboardTab extends ConsumerWidget {
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        '${gateState.lockedChevrons}/9',
+                        '${gateState.lockedChevrons}/7',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -376,7 +394,114 @@ class _DashboardTab extends ConsumerWidget {
               ),
             ],
           ),
+
+          const SizedBox(height: 24),
+
+          // ─── DIAL A PLANET ───────────────────────────────────────
+          Text(
+            'DIAL A PLANET',
+            style: theme.textTheme.titleMedium?.copyWith(letterSpacing: 2),
+          ),
+          const SizedBox(height: 8),
+          _PlanetList(isConnected: isConnected),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Planet list widget ─────────────────────────────────────────────────────
+
+class _PlanetList extends ConsumerWidget {
+  final bool isConnected;
+  const _PlanetList({required this.isConnected});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final planetsAsync = ref.watch(planetsProvider);
+    final theme = Theme.of(context);
+
+    return planetsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Text('Could not load planets: $e', style: const TextStyle(color: Colors.red, fontSize: 12)),
+      ),
+      data: (planets) {
+        if (planets.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text('No planets in address book', style: theme.textTheme.bodyMedium),
+          );
+        }
+        return Column(
+          children: planets
+              .map((p) => _PlanetCard(planet: p, isConnected: isConnected))
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+class _PlanetCard extends ConsumerWidget {
+  final Map<String, dynamic> planet;
+  final bool isConnected;
+  const _PlanetCard({required this.planet, required this.isConnected});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final name = planet['name'] as String;
+    final address = planet['address'] as List<int>;
+    final type = planet['type'] as String;
+    bool dialing = false;
+
+    return StatefulBuilder(
+      builder: (context, setState) => Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        child: ListTile(
+          leading: Icon(
+            type == 'lan' ? Icons.lan : Icons.public,
+            color: theme.colorScheme.primary,
+            size: 22,
+          ),
+          title: Text(name, style: theme.textTheme.titleMedium),
+          subtitle: Text(
+            address.join(' - '),
+            style: theme.textTheme.bodyMedium?.copyWith(fontSize: 11),
+          ),
+          trailing: dialing
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : ElevatedButton(
+                  onPressed: isConnected
+                      ? () async {
+                          setState(() => dialing = true);
+                          try {
+                            final service = ref.read(stargateServiceProvider);
+                            await dialPlanet(address, service, context);
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error: $e')),
+                              );
+                            }
+                          } finally {
+                            setState(() => dialing = false);
+                          }
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                  child: const Text('DIAL'),
+                ),
+        ),
       ),
     );
   }

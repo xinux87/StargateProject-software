@@ -1,9 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/wifi_network.dart';
 import '../providers/connection_provider.dart';
-import '../providers/stargate_provider.dart';
 
 class WifiScreen extends ConsumerStatefulWidget {
   final bool embedded;
@@ -16,23 +17,34 @@ class WifiScreen extends ConsumerStatefulWidget {
 class _WifiScreenState extends ConsumerState<WifiScreen> {
   bool _scanning = false;
   bool _connecting = false;
+  bool _refreshingStatus = false;
   List<WifiNetwork> _networks = [];
   Map<String, dynamic> _wifiStatus = {};
   bool _statusLoaded = false;
+  Timer? _statusTimer;
 
   @override
   void initState() {
     super.initState();
     _loadStatus();
+    // Auto-refresh WiFi status every 15 seconds
+    _statusTimer = Timer.periodic(const Duration(seconds: 15), (_) => _loadStatus());
   }
 
-  Future<void> _loadStatus() async {
+  @override
+  void dispose() {
+    _statusTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadStatus({bool showSpinner = false}) async {
+    if (showSpinner && mounted) setState(() => _refreshingStatus = true);
     try {
       final service = ref.read(stargateServiceProvider);
       final status = await service.getWifiStatus();
-      if (mounted) setState(() { _wifiStatus = status; _statusLoaded = true; });
-    } catch (_) {
-      if (mounted) setState(() => _statusLoaded = true);
+      if (mounted) setState(() { _wifiStatus = status; _statusLoaded = true; _refreshingStatus = false; });
+    } catch (e) {
+      if (mounted) setState(() { _statusLoaded = true; _refreshingStatus = false; });
     }
   }
 
@@ -158,7 +170,21 @@ class _WifiScreenState extends ConsumerState<WifiScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('CURRENT CONNECTION', style: theme.textTheme.titleMedium?.copyWith(letterSpacing: 1.5)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('CURRENT CONNECTION', style: theme.textTheme.titleMedium?.copyWith(letterSpacing: 1.5)),
+                      _refreshingStatus
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          : IconButton(
+                              icon: const Icon(Icons.refresh, size: 20),
+                              tooltip: 'Refresh',
+                              onPressed: () => _loadStatus(showSpinner: true),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   if (!_statusLoaded)
                     const Center(child: CircularProgressIndicator())

@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -7,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../models/stargate_state.dart';
 import '../providers/connection_provider.dart';
 import '../providers/stargate_provider.dart';
+import 'home_screen.dart' show dialPlanet;
 
 class ControlScreen extends ConsumerStatefulWidget {
   final bool embedded;
@@ -20,6 +19,7 @@ class _ControlScreenState extends ConsumerState<ControlScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  int _tabIndex = 0; // 0 = DHD, 1 = Planets
 
   @override
   void initState() {
@@ -104,7 +104,6 @@ class _ControlScreenState extends ConsumerState<ControlScreen>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final stateAsync = ref.watch(stargateStateProvider);
     final connectionAsync = ref.watch(connectionStateProvider);
 
@@ -199,26 +198,39 @@ class _ControlScreenState extends ConsumerState<ControlScreen>
           },
         ),
 
-        // DHD Symbol grid
-        Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.all(12),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 6,
-              crossAxisSpacing: 6,
-              mainAxisSpacing: 6,
-              childAspectRatio: 1,
-            ),
-            itemCount: 39,
-            itemBuilder: (context, index) {
-              final symbol = index + 1;
-              return _SymbolButton(
-                symbol: symbol,
-                enabled: isConnected && !gateState.wormholeActive,
-                onTap: () => _sendSymbol(symbol, isConnected),
-              );
-            },
+        // Tab selector
+        Container(
+          color: const Color(0xFF011A47),
+          child: Row(
+            children: [
+              _TabButton(label: 'DHD', selected: _tabIndex == 0, onTap: () => setState(() => _tabIndex = 0)),
+              _TabButton(label: 'PLANETS', selected: _tabIndex == 1, onTap: () => setState(() => _tabIndex = 1)),
+            ],
           ),
+        ),
+
+        // DHD Symbol grid OR Planets list
+        Expanded(
+          child: _tabIndex == 0
+              ? GridView.builder(
+                  padding: const EdgeInsets.all(12),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 6,
+                    crossAxisSpacing: 6,
+                    mainAxisSpacing: 6,
+                    childAspectRatio: 1,
+                  ),
+                  itemCount: 39,
+                  itemBuilder: (context, index) {
+                    final symbol = index + 1;
+                    return _SymbolButton(
+                      symbol: symbol,
+                      enabled: isConnected && !gateState.wormholeActive,
+                      onTap: () => _sendSymbol(symbol, isConnected),
+                    );
+                  },
+                )
+              : _PlanetsTab(isConnected: isConnected),
         ),
 
         // Action buttons
@@ -299,6 +311,155 @@ class _ControlScreenState extends ConsumerState<ControlScreen>
     return Scaffold(
       appBar: AppBar(title: const Text('DHD CONTROL')),
       body: body,
+    );
+  }
+}
+
+class _TabButton extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _TabButton({required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: selected ? const Color(0xFF00B4D8) : Colors.transparent,
+                width: 2,
+              ),
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: selected ? const Color(0xFF00B4D8) : Colors.grey,
+              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+              fontSize: 13,
+              letterSpacing: 1.5,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlanetsTab extends ConsumerWidget {
+  final bool isConnected;
+  const _PlanetsTab({required this.isConnected});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final planetsAsync = ref.watch(planetsProvider);
+    final theme = Theme.of(context);
+
+    return planetsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Text('Could not load planets: $e',
+            style: const TextStyle(color: Colors.red, fontSize: 12)),
+      ),
+      data: (planets) {
+        if (planets.isEmpty) {
+          return Center(
+            child: Text('No planets in address book', style: theme.textTheme.bodyMedium),
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: planets.length,
+          itemBuilder: (context, i) {
+            final p = planets[i];
+            final name = p['name'] as String;
+            final address = p['address'] as List<int>;
+            final type = p['type'] as String;
+            return _PlanetDialTile(
+              name: name,
+              address: address,
+              type: type,
+              isConnected: isConnected,
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _PlanetDialTile extends ConsumerStatefulWidget {
+  final String name;
+  final List<int> address;
+  final String type;
+  final bool isConnected;
+  const _PlanetDialTile({
+    required this.name,
+    required this.address,
+    required this.type,
+    required this.isConnected,
+  });
+
+  @override
+  ConsumerState<_PlanetDialTile> createState() => _PlanetDialTileState();
+}
+
+class _PlanetDialTileState extends ConsumerState<_PlanetDialTile> {
+  bool _dialing = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Icon(
+          widget.type == 'lan' ? Icons.lan : Icons.public,
+          color: theme.colorScheme.primary,
+          size: 22,
+        ),
+        title: Text(widget.name, style: theme.textTheme.titleMedium),
+        subtitle: Text(
+          widget.address.join(' – '),
+          style: theme.textTheme.bodyMedium?.copyWith(fontSize: 11),
+        ),
+        trailing: _dialing
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : ElevatedButton(
+                onPressed: widget.isConnected
+                    ? () async {
+                        setState(() => _dialing = true);
+                        try {
+                          final service = ref.read(stargateServiceProvider);
+                          await dialPlanet(widget.address, service, context);
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: $e')),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setState(() => _dialing = false);
+                        }
+                      }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  textStyle: const TextStyle(fontSize: 12),
+                ),
+                child: const Text('DIAL'),
+              ),
+      ),
     );
   }
 }
